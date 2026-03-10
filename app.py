@@ -27,18 +27,6 @@ def reset():
 if not st.session_state.started:
     st.title("🏹 Karta Punktowa")
     
-    st.markdown("""
-    <style>
-        /* Podstawowy wygląd przycisków na ekranie startowym */
-        div.stButton > button:first-child {
-            height: 60px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 18px;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-    
     col_a, col_b = st.columns(2)
     with col_a:
         event_type = st.radio("Wydarzenie:", ["Trening", "Turniej"])
@@ -84,18 +72,77 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # Ujednolicony CSS powiększający wszystkie przyciski klawiatury (działa wszędzie)
+    # --- AGRESYWNY CSS BLOKUJĄCY ZMIANY UKŁADU ---
     st.markdown("""
     <style>
-        div[data-testid="stHorizontalBlock"] button {
+        /* 1. WYMUSZENIE SIATKI NA TELEFONACH (Zakaz układania w jedną kolumnę) */
+        div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 6px !important; /* Małe odstępy między guzikami */
+            margin-bottom: 6px !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            width: auto !important;
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* 2. WYGLĄD PRZYCISKÓW (Jak na zdjęciu: duże, grube, zaokrąglone) */
+        div.stButton > button {
+            width: 100% !important;
             height: 65px !important;
             border-radius: 10px !important;
-            font-size: 20px !important;
-            font-weight: bold !important;
-            transition: all 0.2s !important;
+            font-size: 22px !important;
+            font-weight: 900 !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: 0 4px 0px rgba(0,0,0,0.15) !important;
+            transition: all 0.1s !important;
         }
-        div[data-testid="stHorizontalBlock"] button:active {
-            transform: scale(0.95) !important;
+        div.stButton > button:active {
+            transform: translateY(4px) !important;
+            box-shadow: 0 0px 0px rgba(0,0,0,0) !important;
+        }
+
+        /* 3. DOKŁADNE KOLORY ZGODNIE ZE ZDJĘCIEM */
+        /* ROW 1: X(Yellow), 10(Yellow), 9(Yellow), 8(Red) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child(-n+3) button {
+            background-color: #F1C40F !important; color: #000 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child(4) button {
+            background-color: #D32F2F !important; color: #FFF !important;
+        }
+
+        /* ROW 2: 7(Red), 6(Blue), 5(Blue), 4(Black) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(1) button {
+            background-color: #D32F2F !important; color: #FFF !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(2) button,
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(3) button {
+            background-color: #3498DB !important; color: #FFF !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(4) button {
+            background-color: #212121 !important; color: #FFF !important;
+        }
+
+        /* ROW 3: 3(Black), 2(White), 1(White), M(White) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(4) div[data-testid="column"]:nth-child(1) button {
+            background-color: #212121 !important; color: #FFF !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(4) div[data-testid="column"]:nth-child(n+2) button {
+            background-color: #FFFFFF !important; color: #000 !important; border: 1px solid #CCC !important;
+        }
+
+        /* ROW 4: Zegar(White), LÖSCHEN/COFNIJ(Blue) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(5) div[data-testid="column"]:nth-child(1) button {
+            background-color: #F0F3F4 !important; color: #000 !important; font-size: 26px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(5) div[data-testid="column"]:nth-child(2) button {
+            background-color: #5DADE2 !important; color: #FFF !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -115,7 +162,7 @@ else:
     avg = total_points / len(scores) if len(scores) > 0 else 0
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
 
-    # --- NAGŁÓWEK ---
+    # --- NAGŁÓWEK (Block 1) ---
     st.markdown(f"### {info['Typ']} ({info['Data']})")
     if info['Nazwa'] != "-":
         st.write(f"**Wydarzenie:** {info['Nazwa']}")
@@ -131,32 +178,39 @@ else:
 
     st.divider()
 
-    # --- KLAWIATURA Z KOLOOROWYMI KÓŁKAMI (Działa na 100% urządzeń) ---
+    # --- KLAWIATURA PUNKTOWA (SZYWNA SIATKA) ---
+    # ROW 1 (Block 2)
     col1, col2, col3, col4 = st.columns(4)
-    with col1: st.button("🟡 X", on_click=add_score, args=("X",), use_container_width=True)
-    with col2: st.button("🟡 10", on_click=add_score, args=("10",), use_container_width=True)
-    with col3: st.button("🟡 9", on_click=add_score, args=("9",), use_container_width=True)
-    with col4: st.button("🔴 8", on_click=add_score, args=("8",), use_container_width=True)
+    with col1: st.button("X", on_click=add_score, args=("X",), use_container_width=True)
+    with col2: st.button("10", on_click=add_score, args=("10",), use_container_width=True)
+    with col3: st.button("9", on_click=add_score, args=("9",), use_container_width=True)
+    with col4: st.button("8", on_click=add_score, args=("8",), use_container_width=True)
     
+    # ROW 2 (Block 3)
     col5, col6, col7, col8 = st.columns(4)
-    with col5: st.button("🔴 7", on_click=add_score, args=("7",), use_container_width=True)
-    with col6: st.button("🔵 6", on_click=add_score, args=("6",), use_container_width=True)
-    with col7: st.button("🔵 5", on_click=add_score, args=("5",), use_container_width=True)
-    with col8: st.button("⚫ 4", on_click=add_score, args=("4",), use_container_width=True)
+    with col5: st.button("7", on_click=add_score, args=("7",), use_container_width=True)
+    with col6: st.button("6", on_click=add_score, args=("6",), use_container_width=True)
+    with col7: st.button("5", on_click=add_score, args=("5",), use_container_width=True)
+    with col8: st.button("4", on_click=add_score, args=("4",), use_container_width=True)
     
+    # ROW 3 (Block 4)
     col9, col10, col11, col12 = st.columns(4)
-    with col9: st.button("⚫ 3", on_click=add_score, args=("3",), use_container_width=True)
-    with col10: st.button("⚪ 2", on_click=add_score, args=("2",), use_container_width=True)
-    with col11: st.button("⚪ 1", on_click=add_score, args=("1",), use_container_width=True)
-    with col12: st.button("⚪ M", on_click=add_score, args=("M",), use_container_width=True)
+    with col9: st.button("3", on_click=add_score, args=("3",), use_container_width=True)
+    with col10: st.button("2", on_click=add_score, args=("2",), use_container_width=True)
+    with col11: st.button("1", on_click=add_score, args=("1",), use_container_width=True)
+    with col12: st.button("M", on_click=add_score, args=("M",), use_container_width=True)
     
-    col_empty, col_undo = st.columns([1, 3])
-    with col_undo: 
-        st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True, type="primary")
+    # ROW 4 (Block 5) - Zegar po lewej, Cofnij po prawej
+    col13, col14 = st.columns([1, 3])
+    with col13: 
+        # Pusty przycisk udający stoper z Twojego screena
+        st.button("⏱️", disabled=True, use_container_width=True)
+    with col14: 
+        st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
-    # --- TABELA HTML (Pozostaje kolorowa jak na zdjęciu) ---
+    # --- TABELA HTML (Kolorowa, jak na pierwszym zdjęciu) ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #ffeb3b; color: black;"
         if val in ["8", "7"]: return "background-color: #f44336; color: white;"
