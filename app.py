@@ -5,18 +5,6 @@ from datetime import date
 # Konfiguracja strony
 st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
-# --- CUSTOM CSS DLA INTERFEJSU ---
-st.markdown("""
-<style>
-    div.stButton > button:first-child {
-        height: 60px;
-        border-radius: 8px;
-        font-weight: bold;
-        font-size: 18px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # --- INICJALIZACJA ZMIENNYCH ---
 if 'started' not in st.session_state:
     st.session_state.started = False
@@ -38,6 +26,18 @@ def reset():
 # --- EKRAN STARTOWY ---
 if not st.session_state.started:
     st.title("🏹 Karta Punktowa")
+    
+    # Układ wizualny menu
+    st.markdown("""
+    <style>
+        div.stButton > button:first-child {
+            height: 60px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
     
     col_a, col_b = st.columns(2)
     with col_a:
@@ -84,6 +84,59 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
+    # --- KOLOROWA KLAWIATURA (CSS MAGIA) ---
+    st.markdown("""
+    <style>
+        /* Styl bazowy dla przycisków klawiatury (Bloki od 2 do 5) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(n+2):nth-of-type(-n+5) button {
+            height: 70px !important;
+            border-radius: 12px !important;
+            border: none !important;
+            transition: transform 0.1s !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(n+2):nth-of-type(-n+5) button:active {
+            transform: scale(0.92) !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(n+2):nth-of-type(-n+5) button p {
+            font-size: 24px !important;
+            font-weight: 800 !important;
+        }
+
+        /* ROW 1: X, 10, 9 (Żółty), 8 (Czerwony) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child(-n+3) button {
+            background-color: #EEDD22 !important; color: #111 !important; box-shadow: 0 4px 0 #C6B715 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child(4) button {
+            background-color: #D32F2F !important; color: #FFF !important; box-shadow: 0 4px 0 #A01D1D !important;
+        }
+
+        /* ROW 2: 7 (Czerwony), 6, 5 (Niebieski), 4 (Czarny) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(1) button {
+            background-color: #D32F2F !important; color: #FFF !important; box-shadow: 0 4px 0 #A01D1D !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(2) button,
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(3) button {
+            background-color: #29B6F6 !important; color: #FFF !important; box-shadow: 0 4px 0 #1886B8 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(4) button {
+            background-color: #212121 !important; color: #FFF !important; box-shadow: 0 4px 0 #000000 !important;
+        }
+
+        /* ROW 3: 3 (Czarny), 2, 1, M (Biały) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(4) div[data-testid="column"]:nth-child(1) button {
+            background-color: #212121 !important; color: #FFF !important; box-shadow: 0 4px 0 #000000 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(4) div[data-testid="column"]:nth-child(n+2) button {
+            background-color: #FFFFFF !important; color: #111 !important; box-shadow: 0 4px 0 #CCCCCC !important; border: 1px solid #EEE !important;
+        }
+
+        /* ROW 4: Przycisk Cofnij (Jasnoniebieski jak LÖSCHEN na zdjęciu) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(5) button {
+            background-color: #5DADE2 !important; color: #FFF !important; box-shadow: 0 4px 0 #3480AD !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
     info = st.session_state.event_info
     scores = st.session_state.scores
     arrows_per_end = info['StrzalWSerii']
@@ -92,7 +145,6 @@ else:
     
     def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
     
-    # Obliczenia statystyk
     total_points = sum(get_num(s) for s in scores)
     count_x = scores.count("X")
     count_10 = scores.count("10")
@@ -100,7 +152,7 @@ else:
     avg = total_points / len(scores) if len(scores) > 0 else 0
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
 
-    # --- NAGŁÓWEK JAK ZE ZDJĘCIA ---
+    # --- NAGŁÓWEK STATYSTYK (Blok 1) ---
     st.markdown(f"### {info['Typ']} ({info['Data']})")
     if info['Nazwa'] != "-":
         st.write(f"**Wydarzenie:** {info['Nazwa']}")
@@ -116,29 +168,36 @@ else:
 
     st.divider()
 
-    # --- KLAWIATURA DO WPROWADZANIA PUNKTÓW ---
-    col1, col2, col3, col4, col5 = st.columns(5)
+    # --- KLAWIATURA PUNKTOWA ---
+    # ROW 1 (Blok 2)
+    col1, col2, col3, col4 = st.columns(4)
     with col1: st.button("X", on_click=add_score, args=("X",), use_container_width=True)
     with col2: st.button("10", on_click=add_score, args=("10",), use_container_width=True)
     with col3: st.button("9", on_click=add_score, args=("9",), use_container_width=True)
     with col4: st.button("8", on_click=add_score, args=("8",), use_container_width=True)
-    with col5: st.button("7", on_click=add_score, args=("7",), use_container_width=True)
     
-    col6, col7, col8, col9, col10 = st.columns(5)
+    # ROW 2 (Blok 3)
+    col5, col6, col7, col8 = st.columns(4)
+    with col5: st.button("7", on_click=add_score, args=("7",), use_container_width=True)
     with col6: st.button("6", on_click=add_score, args=("6",), use_container_width=True)
     with col7: st.button("5", on_click=add_score, args=("5",), use_container_width=True)
     with col8: st.button("4", on_click=add_score, args=("4",), use_container_width=True)
+    
+    # ROW 3 (Blok 4)
+    col9, col10, col11, col12 = st.columns(4)
     with col9: st.button("3", on_click=add_score, args=("3",), use_container_width=True)
     with col10: st.button("2", on_click=add_score, args=("2",), use_container_width=True)
-    
-    col11, col12, col13 = st.columns([2, 1, 2])
     with col11: st.button("1", on_click=add_score, args=("1",), use_container_width=True)
     with col12: st.button("M", on_click=add_score, args=("M",), use_container_width=True)
-    with col13: st.button("Cofnij ↩", on_click=undo_score, use_container_width=True)
+    
+    # ROW 4 (Blok 5) - Puste miejsce z lewej, duży przycisk cofania z prawej (jak na zdjęciu)
+    col_empty, col_undo = st.columns([1, 3])
+    with col_undo: 
+        st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
-    # --- GENEROWANIE TABELI W HTML (Aby wyglądała jak na zdjęciu) ---
+    # --- GENEROWANIE TABELI W HTML ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #ffeb3b; color: black;"
         if val in ["8", "7"]: return "background-color: #f44336; color: white;"
@@ -157,7 +216,7 @@ else:
         <div style='margin-bottom: 20px; font-family: Arial, sans-serif;'>
             <b>Runda {round_num}</b><br>
             Punkty: <b>{r_points}/{max_round_score} ({r_percent:.0f}%)</b><br>
-            Entfernung (Dystans): <b>{info['Dystans']}</b>
+            Dystans: <b>{info['Dystans']}</b>
             <table style='width: 100%; border-collapse: collapse; text-align: center; margin-top: 5px;'>
                 <tr style='background-color: #f2f2f2; border-bottom: 2px solid #ddd;'>
                     <th colspan='{arrows_per_end}' style='padding: 5px; border: 1px solid #ddd;'>Strzały</th>
@@ -173,7 +232,6 @@ else:
             cumul_total += end_sum
             
             html += "<tr>"
-            # Komórki ze strzałami
             for j in range(arrows_per_end):
                 if j < len(end_scores):
                     val = end_scores[j]
@@ -183,7 +241,6 @@ else:
                 else:
                     html += "<td style='padding: 5px; border: 1px solid #ddd;'></td>"
             
-            # Sumy
             html += f"<td style='padding: 5px; border: 1px solid #ddd; font-weight: bold;'>{end_sum}</td>"
             html += f"<td style='padding: 5px; border: 1px solid #ddd; font-weight: bold;'>{cumul_total}</td>"
             html += "</tr>"
@@ -191,7 +248,6 @@ else:
         html += "</table></div>"
         return html, cumul_total
 
-    # Podział na rundę 1 i 2
     round1_scores = scores[:st.session_state.max_arrows_per_round]
     round2_scores = scores[st.session_state.max_arrows_per_round:]
 
@@ -203,6 +259,6 @@ else:
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
 
-    if st.button("Zakończ i wróć na start", type="secondary", use_container_width=True):
+    if st.button("Zakończ strzelanie (Wróć na start)", type="secondary", use_container_width=True):
         reset()
         st.rerun()
