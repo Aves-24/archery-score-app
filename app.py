@@ -30,21 +30,18 @@ def handle_radio_click():
         add_score(val) 
     st.session_state.radio_input = None 
 
-# --- EKRAN STARTOWY (NOWY, ZIELONY I CZYSTY WYGLĄD) ---
+# --- EKRAN STARTOWY (MINIMALISTYCZNY Z CELOWNIKIEM) ---
 if not st.session_state.started:
     
-    # 1. Ładny, zielony baner z mniejszą czcionką, która mieści się w linii
+    # Zielony baner
     st.markdown("""
     <div style='background-color: #2E8B57; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
         <h2 style='color: white; margin: 0; font-size: 26px; font-weight: bold;'>🏹 Karta Punktowa</h2>
     </div>
     """, unsafe_allow_html=True)
     
-    st.write("Skonfiguruj swoje strzelanie:")
-    st.divider()
-    
-    # 2. Wybór typu
-    event_type = st.radio("Wydarzenie:", ["Trening", "Turniej"], horizontal=True)
+    # Czysty wybór: Trening czy Turniej (bez zbędnego słowa "Wydarzenie")
+    event_type = st.radio("typ_wydarzenia", ["Trening", "Turniej"], horizontal=True, label_visibility="collapsed")
     
     # Nazwa pojawia się tylko dla Turnieju
     event_name = "-"
@@ -53,10 +50,19 @@ if not st.session_state.started:
         
     st.write("") 
     
-    # 3. Zostaje TYLKO wybór dystansu (ilość serii ukryta na stałe = 6)
-    dystans = st.selectbox("Dystans i Tarcza:", ["18m (Spot)", "30m (80cm)", "70m (120cm)"])
+    # Dystans
+    st.write("Wybierz dystans:")
+    dystans = st.selectbox("Dystans", ["18m (Spot)", "30m (80cm)", "70m (120cm)"], label_visibility="collapsed")
 
-    # Strzały i serie ustawione twardo w kodzie
+    # --- NOWE: USTAWIENIA CELOWNIKA ---
+    st.write("⚙️ Ustawienia celownika (wizjer):")
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        sight_hole = st.text_input("Dziurka nr:", placeholder="np. 11")
+    with col_c2:
+        sight_scale = st.text_input("Skala:", placeholder="np. 8 lub 0.7")
+
+    # Strzały i serie ustawione twardo w kodzie (klasyczne 2x 36 strzał)
     arrows_per_end = 6
     ends_per_round = 6
 
@@ -66,7 +72,9 @@ if not st.session_state.started:
         "Nazwa": event_name if event_name.strip() else "-",
         "StrzalWSerii": arrows_per_end,
         "SeriiWRundzie": ends_per_round,
-        "Dystans": dystans
+        "Dystans": dystans,
+        "CelownikDziurka": sight_hole.strip() if sight_hole.strip() else "-",
+        "CelownikSkala": sight_scale.strip() if sight_scale.strip() else "-"
     }
 
     st.write("")
@@ -89,9 +97,13 @@ else:
     
     def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
     
-    # --- KOMPAKTOWY NAGŁÓWEK ---
+    # --- KOMPAKTOWY NAGŁÓWEK (TERAZ POKAZUJE TEŻ CELOWNIK) ---
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
-    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 10px;'>{tytul} | {info['Data']} | {info['Dystans']}</div>", unsafe_allow_html=True)
+    celownik_tekst = ""
+    if info['CelownikDziurka'] != "-" or info['CelownikSkala'] != "-":
+        celownik_tekst = f" | ⚙️ Dziurka: {info['CelownikDziurka']} Skala: {info['CelownikSkala']}"
+        
+    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 10px;'>{tytul} | {info['Data']} | {info['Dystans']}{celownik_tekst}</div>", unsafe_allow_html=True)
 
     # --- KLAWIATURA RADIO ---
     st.write("Wybierz trafienie:")
