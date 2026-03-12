@@ -1,6 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
-import math
 from datetime import date
 
 # Konfiguracja strony
@@ -71,10 +69,10 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # --- CSS: MAKSYMALNE ŚCIŚNIĘCIE APLIKACJI ABY WESZŁA NA TELEFON ---
+    # --- CSS: MAGICZNA TARCZA ANTY-MOBILNA (Wymusza nasz układ na telefonie) ---
     st.markdown("""
     <style>
-        /* Zmniejszamy marginesy do minimum */
+        /* 1. Maksymalne poszerzenie obszaru roboczego (usunięcie białych pasów po bokach na tel) */
         .block-container {
             padding-left: 0.3rem !important;
             padding-right: 0.3rem !important;
@@ -82,30 +80,85 @@ else:
             max-width: 100% !important;
             overflow-x: hidden !important;
         }
-        
-        /* Zmuszamy kolumny do trzymania się w rzędzie */
-        div[data-testid="stHorizontalBlock"] {
+
+        /* 2. WYMUSZAMY RZĘDY (Blokujemy układanie przycisków jedno pod drugim przez telefon) */
+        /* Zastosowane do 4 bloków klawiatury (rzędy od 2 do 5) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(n+2):nth-of-type(-n+5) {
             display: flex !important;
+            flex-direction: row !important; /* TO JEST KLUCZ! Zapobiega kolumnom na mobile */
             flex-wrap: nowrap !important;
             gap: 4px !important;
+            width: 100% !important;
+            margin-bottom: 4px !important;
         }
-        
-        /* Pozwalamy kolumnom się ścisnąć */
-        div[data-testid="column"] {
-            flex: 1 1 0% !important;
-            min-width: 0 !important; /* KLUCZOWE: Zapobiega wyjściu poza ekran */
+
+        /* 3. Precyzyjne szerokości dla pierwszych 3 rzędów klawiatury (każdy ma po 25%) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(n+2):nth-of-type(-n+4) > div[data-testid="column"] {
+            width: 25% !important;
+            flex: 1 1 25% !important;
+            min-width: 0 !important;
             padding: 0 !important;
         }
-        
-        /* Ustawienia samych guzików */
+
+        /* 4. Precyzyjne szerokości dla ostatniego rzędu (Zegar = 25%, Cofnij = 75%) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(5) > div[data-testid="column"]:nth-child(1) {
+            width: 25% !important; flex: 1 1 25% !important; min-width: 0 !important; padding: 0 !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(5) > div[data-testid="column"]:nth-child(2) {
+            width: 75% !important; flex: 3 1 75% !important; min-width: 0 !important; padding: 0 !important;
+        }
+
+        /* 5. Formatowanie samych guzików (idealne prostokąty, nie za wysokie) */
         div.stButton > button {
             width: 100% !important;
-            height: 65px !important;
+            height: 55px !important;
             font-size: 22px !important;
             font-weight: 900 !important;
             padding: 0 !important;
             margin: 0 !important;
             border-radius: 8px !important;
+            box-shadow: 0px 3px 0px rgba(0,0,0,0.15) !important;
+        }
+        div.stButton > button:active {
+            transform: translateY(3px) !important;
+            box-shadow: none !important;
+        }
+
+        /* 6. TWARDE KOLORY (Działają wszędzie, nawet na iPhonie) */
+        /* Rząd 1: X(Yellow), 10(Yellow), 9(Yellow), 8(Red) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child(-n+3) button {
+            background-color: #FCE205 !important; color: black !important; border: none !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child(4) button {
+            background-color: #E53935 !important; color: white !important; border: none !important;
+        }
+
+        /* Rząd 2: 7(Red), 6(Blue), 5(Blue), 4(Black) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(1) button {
+            background-color: #E53935 !important; color: white !important; border: none !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(2) button,
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(3) button {
+            background-color: #039BE5 !important; color: white !important; border: none !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(3) div[data-testid="column"]:nth-child(4) button {
+            background-color: #212121 !important; color: white !important; border: none !important;
+        }
+
+        /* Rząd 3: 3(Black), 2(White), 1(White), M(White) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(4) div[data-testid="column"]:nth-child(1) button {
+            background-color: #212121 !important; color: white !important; border: none !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(4) div[data-testid="column"]:nth-child(n+2) button {
+            background-color: #FFFFFF !important; color: black !important; border: 2px solid #E0E0E0 !important;
+        }
+
+        /* Rząd 4: Zegar(Szary), Cofnij(Niebieski) */
+        div[data-testid="stHorizontalBlock"]:nth-of-type(5) div[data-testid="column"]:nth-child(1) button {
+            background-color: #F0F3F4 !important; color: black !important; font-size: 24px !important; border: none !important;
+        }
+        div[data-testid="stHorizontalBlock"]:nth-of-type(5) div[data-testid="column"]:nth-child(2) button {
+            background-color: #5DADE2 !important; color: white !important; border: none !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -125,7 +178,7 @@ else:
     avg = total_points / len(scores) if len(scores) > 0 else 0
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
 
-    # --- NAGŁÓWEK ---
+    # --- NAGŁÓWEK (Blok 1) ---
     st.markdown(f"### {info['Typ']} ({info['Data']})")
     col_stat1, col_stat2 = st.columns(2)
     with col_stat1:
@@ -135,67 +188,34 @@ else:
 
     st.divider()
 
-    # --- KLAWIATURA (Wymuszone rzędy) ---
+    # --- KLAWIATURA (Teraz na 100% obok siebie) ---
+    # Rząd 1 (Blok 2)
     col1, col2, col3, col4 = st.columns(4)
     with col1: st.button("X", on_click=add_score, args=("X",), use_container_width=True)
     with col2: st.button("10", on_click=add_score, args=("10",), use_container_width=True)
     with col3: st.button("9", on_click=add_score, args=("9",), use_container_width=True)
     with col4: st.button("8", on_click=add_score, args=("8",), use_container_width=True)
     
+    # Rząd 2 (Blok 3)
     col5, col6, col7, col8 = st.columns(4)
     with col5: st.button("7", on_click=add_score, args=("7",), use_container_width=True)
     with col6: st.button("6", on_click=add_score, args=("6",), use_container_width=True)
     with col7: st.button("5", on_click=add_score, args=("5",), use_container_width=True)
     with col8: st.button("4", on_click=add_score, args=("4",), use_container_width=True)
     
+    # Rząd 3 (Blok 4)
     col9, col10, col11, col12 = st.columns(4)
     with col9: st.button("3", on_click=add_score, args=("3",), use_container_width=True)
     with col10: st.button("2", on_click=add_score, args=("2",), use_container_width=True)
     with col11: st.button("1", on_click=add_score, args=("1",), use_container_width=True)
     with col12: st.button("M", on_click=add_score, args=("M",), use_container_width=True)
     
+    # Rząd 4 (Blok 5)
     col13, col14 = st.columns([1, 3])
     with col13: st.button("⏱️", disabled=True, use_container_width=True)
     with col14: st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True)
 
     st.divider()
-
-    # --- SKRYPT JS: Gwarantuje kolory na 100% ---
-    components.html("""
-    <script>
-    setTimeout(function() {
-        const buttons = window.parent.document.querySelectorAll('.stButton button');
-        buttons.forEach(btn => {
-            const text = btn.innerText.trim();
-            if (['X', '10', '9'].includes(text)) {
-                btn.style.setProperty('background-color', '#FCE205', 'important');
-                btn.style.setProperty('color', '#000000', 'important');
-                btn.style.setProperty('border', 'none', 'important');
-            } else if (['8', '7'].includes(text)) {
-                btn.style.setProperty('background-color', '#E53935', 'important');
-                btn.style.setProperty('color', '#FFFFFF', 'important');
-                btn.style.setProperty('border', 'none', 'important');
-            } else if (['6', '5'].includes(text)) {
-                btn.style.setProperty('background-color', '#039BE5', 'important');
-                btn.style.setProperty('color', '#FFFFFF', 'important');
-                btn.style.setProperty('border', 'none', 'important');
-            } else if (['4', '3'].includes(text)) {
-                btn.style.setProperty('background-color', '#212121', 'important');
-                btn.style.setProperty('color', '#FFFFFF', 'important');
-                btn.style.setProperty('border', 'none', 'important');
-            } else if (['2', '1', 'M'].includes(text)) {
-                btn.style.setProperty('background-color', '#FFFFFF', 'important');
-                btn.style.setProperty('color', '#000000', 'important');
-                btn.style.setProperty('border', '2px solid #E0E0E0', 'important');
-            } else if (text === '⌫ COFNIJ') {
-                btn.style.setProperty('background-color', '#5DADE2', 'important');
-                btn.style.setProperty('color', '#FFFFFF', 'important');
-                btn.style.setProperty('border', 'none', 'important');
-            }
-        });
-    }, 100);
-    </script>
-    """, height=0, width=0)
 
     # --- TABELA HTML ---
     def get_color_style(val):
