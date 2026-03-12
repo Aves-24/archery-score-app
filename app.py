@@ -24,11 +24,14 @@ def reset():
     st.session_state.scores = []
     st.session_state.radio_input = None
 
+# --- ZAKTUALIZOWANA FUNKCJA RADIO (Obsługuje cofanie!) ---
 def handle_radio_click():
     val = st.session_state.radio_input
-    if val is not None:
-        add_score(val)
-        st.session_state.radio_input = None
+    if val == "⌫":
+        undo_score() # Jeśli wybrano ikonę cofania
+    elif val is not None:
+        add_score(val) # Jeśli wybrano normalny punkt
+    st.session_state.radio_input = None # Zawsze odklikaj
 
 # --- EKRAN STARTOWY ---
 if not st.session_state.started:
@@ -85,55 +88,48 @@ else:
     
     def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
     
-    total_points = sum(get_num(s) for s in scores)
-    count_x = scores.count("X")
-    count_10 = scores.count("10")
-    count_9 = scores.count("9")
-    avg = total_points / len(scores) if len(scores) > 0 else 0
-    percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
+    # --- KOMPAKTOWY NAGŁÓWEK ---
+    tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
+    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 10px;'>{tytul} | {info['Data']} | {info['Dystans']}</div>", unsafe_allow_html=True)
 
-    st.markdown(f"### {info['Typ']} ({info['Data']})")
-    st.markdown(f"**Strzały:** {len(scores)}/{st.session_state.max_total_arrows} &nbsp;&nbsp;|&nbsp;&nbsp; **Punkty:** {total_points}/{max_total_score} ({percent:.0f}%)")
-    st.divider()
-
-    st.write("Wybierz trafienie (zapisuje się automatycznie):")
+    # --- KLAWIATURA RADIO Z WBUDOWANYM COFANIEM ---
+    st.write("Wybierz trafienie:")
     
     st.radio(
         "Punkty",
-        options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M"],
+        options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], # Dodana ikona cofania!
         horizontal=True,
         index=None, 
         key="radio_input", 
         on_change=handle_radio_click, 
         label_visibility="collapsed"
     )
-    
-    st.write("") 
-    st.button("⌫ Cofnij ostatnią strzałę", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
+    # --- KOLOROWA TABELA HTML ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
         if val in ["6", "5"]: return "background-color: #039BE5; color: white;"
         if val in ["4", "3"]: return "background-color: #212121; color: white;"
-        if val in ["2", "1"]: return "background-color: #ffffff; color: black;"
+        if val in ["2", "1"]: return "background-color: #ffffff; color: black; border: 1px solid #ccc;"
         if val == "M": return "background-color: #9e9e9e; color: white;"
         return "background-color: transparent;"
 
-    # --- TABELA HTML ---
     def render_round_html(round_num, round_scores, cumulative_start):
         r_points = sum(get_num(s) for s in round_scores)
         r_hits = len([s for s in round_scores if s != "M"])
         r_10s = round_scores.count("10") + round_scores.count("X") 
         r_xs = round_scores.count("X")
+        r_max_current = len(round_scores) * 10
+        r_percent = (r_points / r_max_current * 100) if r_max_current > 0 else 0
         
-        html = f"<div style='margin-bottom: 25px; font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
+        html = f"<div style='margin-bottom: 20px; font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
         html += f"<div style='display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;'><b>Runda {round_num}</b><span style='font-weight: bold;'>{info['Dystans']}</span></div>"
         html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black;'>"
-        html += f"<tr style='border-bottom: 1px solid black;'><th rowspan='2' style='border: 1px solid black; border-right: 2px solid black; padding: 2px; width: 30px;'></th><th colspan='{arrows_per_end}' style='border: 1px solid black; padding: 2px; font-size: 14px;'>Pfeile</th><th colspan='2' style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 14px;'>Summen</th></tr>"
-        html += f"<tr style='border-bottom: 2px solid black;'>"
+        html += f"<tr style='background-color: #f2f2f2; color: #000000; border-bottom: 1px solid black;'><th rowspan='2' style='border: 1px solid black; border-right: 2px solid black; padding: 2px; width: 30px;'></th><th colspan='{arrows_per_end}' style='border: 1px solid black; padding: 2px; font-size: 14px;'>Pfeile</th><th colspan='2' style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 14px;'>Summen</th></tr>"
+        html += f"<tr style='background-color: #f2f2f2; color: #000000; border-bottom: 2px solid black;'>"
         
         for arr in range(1, arrows_per_end + 1):
             html += f"<th style='border: 1px solid black; padding: 2px; width: 30px; font-size: 12px;'>{arr}</th>"
@@ -165,36 +161,47 @@ else:
                     circle = f"<div style='width: 22px; height: 22px; border-radius: 50%; {style} display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin: 0 auto; border: 1px solid #aaa;'>{val}</div>"
                     html += f"<td style='border: 1px solid black; padding: 2px;'>{circle}</td>"
                 else:
-                    html += "<td style='padding: 2px;'></td>"
+                    html += "<td style='padding: 2px; border: 1px solid black;'></td>"
             
             html += f"<td style='border: 1px solid black; border-left: 2px solid black; padding: 4px; font-weight: bold;'>{end_sum}</td>"
             html += f"<td style='border: 1px solid black; padding: 4px; font-weight: bold;'>{cumul_total if len(end_scores)>0 else ''}</td>"
             html += "</tr>"
             
-        html += f"<tr style='border-top: 2px solid black; background-color: #f9f9f9;'><td colspan='{arrows_per_end + 1}' style='text-align: right; padding: 5px; font-weight: bold; border: 1px solid black; border-right: 2px solid black;'>Summe:</td><td colspan='2' style='border: 2px solid black; font-weight: bold; font-size: 16px; padding: 5px;'>{r_points}</td></tr></table>"
+        html += f"<tr style='border-top: 2px solid black; background-color: #f9f9f9; color: #000;'><td colspan='{arrows_per_end + 1}' style='text-align: right; padding: 5px; font-weight: bold; border: 1px solid black; border-right: 2px solid black;'>Summe:</td><td colspan='2' style='border: 2px solid black; font-weight: bold; font-size: 16px; padding: 5px;'>{r_points}</td></tr></table>"
         
-        html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none;'><tr><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Treffer:<br><b style='font-size: 14px;'>{r_hits}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Kontr.<br>&nbsp;</td></tr></table></div>"
+        html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none; color: #000;'><tr><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Treffer:<br><b style='font-size: 14px;'>{r_hits}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Kontr.<br>&nbsp;</td></tr></table></div>"
         
         return html, cumul_total
 
     round1_scores = scores[:st.session_state.max_arrows_per_round]
     round2_scores = scores[st.session_state.max_arrows_per_round:]
 
-    # --- INTELIGENTNE WYŚWIETLANIE RUND ---
     if len(round2_scores) == 0:
-        # Strzelamy Rundę 1 - pokazujemy ją normalnie
         if len(round1_scores) > 0 or not st.session_state.started:
             html1, cumul1 = render_round_html(1, round1_scores, 0)
             st.markdown(html1, unsafe_allow_html=True)
     else:
-        # Strzelamy Rundę 2! Zwijamy Rundę 1 do małego paska
         html1, cumul1 = render_round_html(1, round1_scores, 0)
         with st.expander("✅ Runda 1 (Zakończona - kliknij, aby rozwinąć)", expanded=False):
             st.markdown(html1, unsafe_allow_html=True)
         
-        # Wyświetlamy Rundę 2 na samej górze
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
+
+    # --- STATYSTYKI KOŃCOWE NA DOLE EKRANU ---
+    total_points = sum(get_num(s) for s in scores)
+    percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
+    count_x = scores.count("X")
+    count_10 = scores.count("10")
+    
+    st.markdown("### 📊 Wynik Całkowity (Mecz)")
+    col_s1, col_s2, col_s3 = st.columns(3)
+    col_s1.metric("Punkty", f"{total_points} / {max_total_score}")
+    col_s2.metric("Strzały", f"{len(scores)} / {max_total_arrows}")
+    col_s3.metric("Skuteczność", f"{percent:.1f}%")
+    
+    st.write(f"**Suma 10+X:** {count_10 + count_x} &nbsp;&nbsp;|&nbsp;&nbsp; **Same X:** {count_x}")
+    st.write("")
 
     if st.button("Zakończ strzelanie (Wkrótce Google Sheets)", type="primary", use_container_width=True):
         reset()
