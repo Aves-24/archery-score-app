@@ -3,13 +3,25 @@ from datetime import date
 
 st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
+# --- LISTA DYSTANSÓW ---
+dystanse_lista = ["18m (Spot)", "30m (80cm)", "70m (120cm)"]
+
 # --- INICJALIZACJA ZMIENNYCH ---
 if 'started' not in st.session_state:
     st.session_state.started = False
 if 'scores' not in st.session_state:
     st.session_state.scores = []
-if 'radio_input' not in st.session_state:
-    st.session_state.radio_input = None
+
+# Domyślne wartości celownika (Z Twoich notatek!)
+if f"dz_{dystanse_lista[0]}" not in st.session_state:
+    st.session_state[f"dz_{dystanse_lista[0]}"] = "11"  # 18m Dziurka
+    st.session_state[f"sk_{dystanse_lista[0]}"] = "0.7" # 18m Skala
+    
+    st.session_state[f"dz_{dystanse_lista[1]}"] = ""    # 30m Dziurka
+    st.session_state[f"sk_{dystanse_lista[1]}"] = ""    # 30m Skala
+    
+    st.session_state[f"dz_{dystanse_lista[2]}"] = "11"  # 70m Dziurka
+    st.session_state[f"sk_{dystanse_lista[2]}"] = "8"   # 70m Skala
 
 def add_score(val):
     if len(st.session_state.scores) < st.session_state.max_total_arrows:
@@ -20,17 +32,22 @@ def undo_score():
         st.session_state.scores.pop()
 
 def reset():
-    st.session_state.clear()
+    # Miękki reset - czyści tarczę, ale ZACHOWUJE notatki celownika!
+    st.session_state.started = False
+    st.session_state.scores = []
+    if 'radio_input' in st.session_state:
+        del st.session_state['radio_input']
 
 def handle_radio_click():
-    val = st.session_state.radio_input
-    if val == "⌫":
-        undo_score() 
-    elif val is not None:
-        add_score(val) 
-    st.session_state.radio_input = None 
+    if 'radio_input' in st.session_state:
+        val = st.session_state.radio_input
+        if val == "⌫":
+            undo_score() 
+        elif val is not None:
+            add_score(val) 
+        st.session_state.radio_input = None 
 
-# --- EKRAN STARTOWY (MINIMALISTYCZNY Z CELOWNIKIEM) ---
+# --- EKRAN STARTOWY (MINIMALISTYCZNY Z NOTATNIKIEM CELOWNIKA) ---
 if not st.session_state.started:
     
     # Zielony baner
@@ -40,29 +57,35 @@ if not st.session_state.started:
     </div>
     """, unsafe_allow_html=True)
     
-    # Czysty wybór: Trening czy Turniej (bez zbędnego słowa "Wydarzenie")
+    # Wybór: Trening czy Turniej
     event_type = st.radio("typ_wydarzenia", ["Trening", "Turniej"], horizontal=True, label_visibility="collapsed")
     
-    # Nazwa pojawia się tylko dla Turnieju
     event_name = "-"
     if event_type == "Turniej":
         event_name = st.text_input("Nazwa turnieju:", placeholder="np. Mistrzostwa Klubu")
         
     st.write("") 
     
-    # Dystans
-    st.write("Wybierz dystans:")
-    dystans = st.selectbox("Dystans", ["18m (Spot)", "30m (80cm)", "70m (120cm)"], label_visibility="collapsed")
+    # --- TABELA CELOWNIKA ---
+    st.write("⚙️ **Twój notatnik celownika (Wizjer):**")
+    
+    c1, c2, c3 = st.columns([2, 1, 1])
+    c1.markdown("<span style='font-size:12px; color:gray;'>Dystans</span>", unsafe_allow_html=True)
+    c2.markdown("<span style='font-size:12px; color:gray;'>Dziurka nr</span>", unsafe_allow_html=True)
+    c3.markdown("<span style='font-size:12px; color:gray;'>Skala</span>", unsafe_allow_html=True)
+    
+    for d in dystanse_lista:
+        c1, c2, c3 = st.columns([2, 1, 1])
+        c1.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{d.split(' ')[0]}</div>", unsafe_allow_html=True) # Wypisze tylko "18m", "30m", "70m"
+        c2.text_input(f"Dz {d}", key=f"dz_{d}", label_visibility="collapsed")
+        c3.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
 
-    # --- NOWE: USTAWIENIA CELOWNIKA ---
-    st.write("⚙️ Ustawienia celownika (wizjer):")
-    col_c1, col_c2 = st.columns(2)
-    with col_c1:
-        sight_hole = st.text_input("Dziurka nr:", placeholder="np. 11")
-    with col_c2:
-        sight_scale = st.text_input("Skala:", placeholder="np. 8 lub 0.7")
+    st.divider()
 
-    # Strzały i serie ustawione twardo w kodzie (klasyczne 2x 36 strzał)
+    # --- WYBÓR DZISIEJSZEGO TRENINGU ---
+    st.write("🎯 **Dzisiejsze strzelanie:**")
+    dystans = st.selectbox("Wybierz dystans", dystanse_lista, label_visibility="collapsed")
+
     arrows_per_end = 6
     ends_per_round = 6
 
@@ -73,11 +96,10 @@ if not st.session_state.started:
         "StrzalWSerii": arrows_per_end,
         "SeriiWRundzie": ends_per_round,
         "Dystans": dystans,
-        "CelownikDziurka": sight_hole.strip() if sight_hole.strip() else "-",
-        "CelownikSkala": sight_scale.strip() if sight_scale.strip() else "-"
+        "CelownikDziurka": st.session_state[f"dz_{dystans}"].strip() if st.session_state[f"dz_{dystans}"].strip() else "-",
+        "CelownikSkala": st.session_state[f"sk_{dystans}"].strip() if st.session_state[f"sk_{dystans}"].strip() else "-"
     }
 
-    st.write("")
     st.write("")
 
     if st.button("🚀 ROZPOCZNIJ STRZELANIE", type="primary", use_container_width=True):
@@ -97,11 +119,11 @@ else:
     
     def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
     
-    # --- KOMPAKTOWY NAGŁÓWEK (TERAZ POKAZUJE TEŻ CELOWNIK) ---
+    # --- KOMPAKTOWY NAGŁÓWEK (TERAZ Z CELOWNIKIEM!) ---
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
     celownik_tekst = ""
     if info['CelownikDziurka'] != "-" or info['CelownikSkala'] != "-":
-        celownik_tekst = f" | ⚙️ Dziurka: {info['CelownikDziurka']} Skala: {info['CelownikSkala']}"
+        celownik_tekst = f" | ⚙️ Dz: {info['CelownikDziurka']} Sk: {info['CelownikSkala']}"
         
     st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 10px;'>{tytul} | {info['Data']} | {info['Dystans']}{celownik_tekst}</div>", unsafe_allow_html=True)
 
