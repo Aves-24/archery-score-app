@@ -30,32 +30,35 @@ def handle_radio_click():
         add_score(val) 
     st.session_state.radio_input = None 
 
-# --- EKRAN STARTOWY (NOWY, KOMPAKTOWY WYGLĄD) ---
+# --- EKRAN STARTOWY (NOWY, ZIELONY I CZYSTY WYGLĄD) ---
 if not st.session_state.started:
-    st.title("🏹 Karta Punktowa")
-    st.write("Skonfiguruj swoje strzelanie:")
     
+    # 1. Ładny, zielony baner z mniejszą czcionką, która mieści się w linii
+    st.markdown("""
+    <div style='background-color: #2E8B57; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+        <h2 style='color: white; margin: 0; font-size: 26px; font-weight: bold;'>🏹 Karta Punktowa</h2>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.write("Skonfiguruj swoje strzelanie:")
     st.divider()
     
-    # 1. Wybór typu (poziomo)
+    # 2. Wybór typu
     event_type = st.radio("Wydarzenie:", ["Trening", "Turniej"], horizontal=True)
     
-    # 2. Nazwa pojawia się tylko dla Turnieju
+    # Nazwa pojawia się tylko dla Turnieju
     event_name = "-"
     if event_type == "Turniej":
         event_name = st.text_input("Nazwa turnieju:", placeholder="np. Mistrzostwa Klubu")
         
-    st.write("") # Drobny odstęp
+    st.write("") 
     
-    # 3. Kompaktowy układ: Ilość serii obok wyboru Dystansu
-    col1, col2 = st.columns(2)
-    with col1:
-        ends_per_round = st.number_input("Serii w rundzie:", min_value=1, value=6, help="Po 6 strzał w serii")
-    with col2:
-        dystans = st.selectbox("Dystans i Tarcza:", ["18m (Spot)", "30m (80cm)", "70m (120cm)"])
+    # 3. Zostaje TYLKO wybór dystansu (ilość serii ukryta na stałe = 6)
+    dystans = st.selectbox("Dystans i Tarcza:", ["18m (Spot)", "30m (80cm)", "70m (120cm)"])
 
-    # Strzały w serii ustawione na twardo na 6 (usunięte z interfejsu)
+    # Strzały i serie ustawione twardo w kodzie
     arrows_per_end = 6
+    ends_per_round = 6
 
     base_info = {
         "Data": date.today().strftime("%d.%m.%Y"),
@@ -69,7 +72,6 @@ if not st.session_state.started:
     st.write("")
     st.write("")
 
-    # 4. Jeden wielki przycisk startu
     if st.button("🚀 ROZPOCZNIJ STRZELANIE", type="primary", use_container_width=True):
         st.session_state.event_info = base_info
         st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
