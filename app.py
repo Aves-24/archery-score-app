@@ -8,6 +8,9 @@ if 'started' not in st.session_state:
     st.session_state.started = False
 if 'scores' not in st.session_state:
     st.session_state.scores = []
+# Zmienna pilnująca naszego sprytnego przycisku Radio
+if 'radio_input' not in st.session_state:
+    st.session_state.radio_input = None
 
 def add_score(val):
     if len(st.session_state.scores) < st.session_state.max_total_arrows:
@@ -20,6 +23,15 @@ def undo_score():
 def reset():
     st.session_state.started = False
     st.session_state.scores = []
+    st.session_state.radio_input = None
+
+# --- TWOJA GENIALNA FUNKCJA RESETUJĄCA ---
+def handle_radio_click():
+    # Pobieramy to, co właśnie kliknąłeś
+    val = st.session_state.radio_input
+    if val is not None:
+        add_score(val) # Zapisujemy do tabeli
+        st.session_state.radio_input = None # Natychmiast "odklikujemy" przycisk!
 
 # --- EKRAN STARTOWY ---
 if not st.session_state.started:
@@ -68,47 +80,6 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # --- PANCERNY KOD (Wymusza 4 równe przyciski w rzędzie na KAŻDYM telefonie) ---
-    st.markdown("""
-    <style>
-        /* Obcinamy marginesy ekranu telefonu */
-        .block-container {
-            padding-left: 5px !important;
-            padding-right: 5px !important;
-            max-width: 100% !important;
-            overflow-x: hidden !important; 
-        }
-
-        /* Ustawiamy sztywne wiersze */
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            width: 100% !important;
-            margin-bottom: 5px !important;
-        }
-
-        /* 4 kolumny = 4x25% szerokości ekranu, bezwzględnie */
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            width: 25% !important;
-            min-width: 25% !important;
-            max-width: 25% !important;
-            flex: 1 1 25% !important;
-            padding: 0 2px !important;
-        }
-
-        /* Ustawienia guzika */
-        div.stButton > button {
-            width: 100% !important;
-            height: 65px !important;
-            font-size: 16px !important;
-            font-weight: 900 !important;
-            padding: 0 !important;
-            border-radius: 8px !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
     info = st.session_state.event_info
     scores = st.session_state.scores
     arrows_per_end = info['StrzalWSerii']
@@ -124,39 +95,31 @@ else:
     avg = total_points / len(scores) if len(scores) > 0 else 0
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
 
-    # --- NAGŁÓWEK (Zero kolumn, sam prosty tekst, żeby chronić siatkę klawiatury) ---
+    # --- NAGŁÓWEK ---
     st.markdown(f"### {info['Typ']} ({info['Data']})")
     st.markdown(f"**Strzały:** {len(scores)}/{st.session_state.max_total_arrows} &nbsp;&nbsp;|&nbsp;&nbsp; **Punkty:** {total_points}/{max_total_score} ({percent:.0f}%)")
     st.divider()
 
-    # --- SZYBKA KLAWIATURA JEDNOKLIKOWA ---
-    # Rząd 1
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.button("🟡 X", on_click=add_score, args=("X",), use_container_width=True)
-    with col2: st.button("🟡 10", on_click=add_score, args=("10",), use_container_width=True)
-    with col3: st.button("🟡 9", on_click=add_score, args=("9",), use_container_width=True)
-    with col4: st.button("🔴 8", on_click=add_score, args=("8",), use_container_width=True)
+    # --- TWOJA NOWA, SZYBKA KLAWIATURA ---
+    st.write("Wybierz trafienie (zapisuje się automatycznie):")
     
-    # Rząd 2
-    col5, col6, col7, col8 = st.columns(4)
-    with col5: st.button("🔴 7", on_click=add_score, args=("7",), use_container_width=True)
-    with col6: st.button("🔵 6", on_click=add_score, args=("6",), use_container_width=True)
-    with col7: st.button("🔵 5", on_click=add_score, args=("5",), use_container_width=True)
-    with col8: st.button("⚫ 4", on_click=add_score, args=("4",), use_container_width=True)
+    # Przycisk Radio podłączony do funkcji czyszczącej
+    st.radio(
+        "Punkty",
+        options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M"],
+        horizontal=True,
+        index=None, # Na starcie nic nie jest zaznaczone
+        key="radio_input", # Połączenie ze zmienną
+        on_change=handle_radio_click, # Funkcja wywoływana OD RAZU po kliknięciu
+        label_visibility="collapsed"
+    )
     
-    # Rząd 3
-    col9, col10, col11, col12 = st.columns(4)
-    with col9: st.button("⚫ 3", on_click=add_score, args=("3",), use_container_width=True)
-    with col10: st.button("⚪ 2", on_click=add_score, args=("2",), use_container_width=True)
-    with col11: st.button("⚪ 1", on_click=add_score, args=("1",), use_container_width=True)
-    with col12: st.button("⚪ M", on_click=add_score, args=("M",), use_container_width=True)
-    
-    # Przyciski akcji (Bez używania kolumn - naturalnie zajmą pełną szerokość ekranu)
+    st.write("") # Drobny odstęp
     st.button("⌫ Cofnij ostatnią strzałę", on_click=undo_score, use_container_width=True)
-    
+
     st.divider()
 
-    # --- KOLOROWA TABELA HTML (Pozostaje z Tobą na 100%) ---
+    # --- KOLOROWA TABELA HTML ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
