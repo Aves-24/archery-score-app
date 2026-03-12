@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import date
 
-# Konfiguracja strony
 st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- INICJALIZACJA ZMIENNYCH ---
@@ -69,48 +68,6 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # --- PANCERNY KOD NA ANDROIDA ---
-    st.markdown("""
-    <style>
-        /* 1. Reset całkowity marginesów aplikacji */
-        .block-container {
-            padding-top: 1rem !important;
-            padding-left: 0.1rem !important;
-            padding-right: 0.1rem !important;
-            max-width: 100vw !important;
-            overflow-x: hidden !important; 
-        }
-
-        /* 2. GŁÓWNY FIX NA WYJEŻDŻANIE ZA EKRAN (Usuwamy domyślne przerwy "gap" telefonu) */
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 0 !important; /* TO NAPRAWIA TWÓJ BŁĄD! */
-            width: 100% !important;
-            margin: 0 !important;
-        }
-
-        /* 3. Zmuszamy kolumny do równego dzielenia 100% ekranu */
-        div[data-testid="column"] {
-            flex: 1 1 0% !important; /* Magia: jak są 4 kolumny to dają idealnie 25% */
-            width: auto !important;
-            min-width: 0 !important; /* Zapobiega panice Androida i łamaniu w dół */
-            padding: 0 3px !important; /* Drobny odstęp wizualny między przyciskami wewnątrz klatki */
-        }
-
-        /* 4. Same przyciski - grube i równe */
-        div.stButton > button {
-            width: 100% !important;
-            height: 65px !important;
-            font-size: 18px !important;
-            font-weight: 900 !important;
-            padding: 0 !important;
-            border-radius: 6px !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
     info = st.session_state.event_info
     scores = st.session_state.scores
     arrows_per_end = info['StrzalWSerii']
@@ -131,33 +88,33 @@ else:
     st.markdown(f"**Strzały:** {len(scores)}/{st.session_state.max_total_arrows} &nbsp; | &nbsp; **Punkty:** {total_points}/{max_total_score} ({percent:.0f}%)")
     st.divider()
 
-    # --- KLAWIATURA 4x4 (Emoji Gwarantują Kolor na Androidzie) ---
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: st.button("🟡 X", on_click=add_score, args=("X",), use_container_width=True)
-    with col2: st.button("🟡 10", on_click=add_score, args=("10",), use_container_width=True)
-    with col3: st.button("🟡 9", on_click=add_score, args=("9",), use_container_width=True)
-    with col4: st.button("🔴 8", on_click=add_score, args=("8",), use_container_width=True)
+    # --- BEZPIECZNA KLAWIATURA NATYWNA (3 kolumny) ---
+    st.write("Wprowadź punkty:")
+    col1, col2, col3 = st.columns(3)
     
-    col5, col6, col7, col8 = st.columns(4)
-    with col5: st.button("🔴 7", on_click=add_score, args=("7",), use_container_width=True)
-    with col6: st.button("🔵 6", on_click=add_score, args=("6",), use_container_width=True)
-    with col7: st.button("🔵 5", on_click=add_score, args=("5",), use_container_width=True)
-    with col8: st.button("⚫ 4", on_click=add_score, args=("4",), use_container_width=True)
-    
-    col9, col10, col11, col12 = st.columns(4)
-    with col9: st.button("⚫ 3", on_click=add_score, args=("3",), use_container_width=True)
-    with col10: st.button("⚪ 2", on_click=add_score, args=("2",), use_container_width=True)
-    with col11: st.button("⚪ 1", on_click=add_score, args=("1",), use_container_width=True)
-    with col12: st.button("⚪ M", on_click=add_score, args=("M",), use_container_width=True)
-    
-    # Dolny wiersz (Podzieli się idealnie 50/50 na ekranie)
-    col13, col14 = st.columns(2)
-    with col13: st.button("⏱️", disabled=True, use_container_width=True)
-    with col14: st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True)
+    with col1:
+        st.button("🟡 X", on_click=add_score, args=("X",), use_container_width=True)
+        st.button("🔴 8", on_click=add_score, args=("8",), use_container_width=True)
+        st.button("🔵 5", on_click=add_score, args=("5",), use_container_width=True)
+        st.button("⚪ 2", on_click=add_score, args=("2",), use_container_width=True)
+        
+    with col2:
+        st.button("🟡 10", on_click=add_score, args=("10",), use_container_width=True)
+        st.button("🔴 7", on_click=add_score, args=("7",), use_container_width=True)
+        st.button("⚫ 4", on_click=add_score, args=("4",), use_container_width=True)
+        st.button("⚪ 1", on_click=add_score, args=("1",), use_container_width=True)
+        
+    with col3:
+        st.button("🟡 9", on_click=add_score, args=("9",), use_container_width=True)
+        st.button("🔵 6", on_click=add_score, args=("6",), use_container_width=True)
+        st.button("⚫ 3", on_click=add_score, args=("3",), use_container_width=True)
+        st.button("⚪ M", on_click=add_score, args=("M",), use_container_width=True)
+
+    st.button("⌫ COFNIJ OSTATNIĄ STRZAŁĘ", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
-    # --- TABELA HTML (Tu kolory będą 100% działać, bo to czysty HTML, bez Streamlit) ---
+    # --- KOLOROWA TABELA HTML ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
@@ -218,6 +175,6 @@ else:
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
 
-    if st.button("Zakończ strzelanie", type="secondary", use_container_width=True):
+    if st.button("Zakończ strzelanie i Zapisz (Wkrótce Google Sheets)", type="primary", use_container_width=True):
         reset()
         st.rerun()
