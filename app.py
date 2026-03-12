@@ -122,43 +122,27 @@ else:
         if val == "M": return "background-color: #9e9e9e; color: white;"
         return "background-color: transparent;"
 
-    # --- KLASYCZNY SCHIEßZETTEL W HTML ---
+    # --- PŁASKI HTML BEZ WCIĘĆ (Gwarancja rysowania tabeli) ---
     def render_round_html(round_num, round_scores, cumulative_start):
         r_points = sum(get_num(s) for s in round_scores)
-        
-        # Statystyki specyficzne dla tej rundy (wymagane w stopce)
         r_hits = len([s for s in round_scores if s != "M"])
-        r_10s = round_scores.count("10") + round_scores.count("X") # X liczy się też jako 10 w statystykach
+        r_10s = round_scores.count("10") + round_scores.count("X") 
         r_xs = round_scores.count("X")
         
-        html = f"""
-        <div style='margin-bottom: 25px; font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
-                <b>Runda {round_num}</b>
-                <span style="font-weight: bold;">{info['Dystans']}</span>
-            </div>
-            
-            <table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black;'>
-                <tr style='border-bottom: 1px solid black;'>
-                    <th rowspan='2' style='border: 1px solid black; border-right: 2px solid black; padding: 2px; width: 30px;'></th>
-                    <th colspan='{arrows_per_end}' style='border: 1px solid black; padding: 2px; font-size: 14px;'>Pfeile</th>
-                    <th colspan='2' style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 14px;'>Summen</th>
-                </tr>
-                <tr style='border-bottom: 2px solid black;'>
-        """
+        html = f"<div style='margin-bottom: 25px; font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
+        html += f"<div style='display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;'><b>Runda {round_num}</b><span style='font-weight: bold;'>{info['Dystans']}</span></div>"
+        html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black;'>"
+        html += f"<tr style='border-bottom: 1px solid black;'><th rowspan='2' style='border: 1px solid black; border-right: 2px solid black; padding: 2px; width: 30px;'></th><th colspan='{arrows_per_end}' style='border: 1px solid black; padding: 2px; font-size: 14px;'>Pfeile</th><th colspan='2' style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 14px;'>Summen</th></tr>"
+        html += f"<tr style='border-bottom: 2px solid black;'>"
+        
         for arr in range(1, arrows_per_end + 1):
             html += f"<th style='border: 1px solid black; padding: 2px; width: 30px; font-size: 12px;'>{arr}</th>"
             
-        html += """
-                    <th style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 12px;'>Seria</th>
-                    <th style='border: 1px solid black; padding: 2px; font-size: 12px;'>Übertrag</th>
-                </tr>
-        """
+        html += f"<th style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 12px;'>Seria</th><th style='border: 1px solid black; padding: 2px; font-size: 12px;'>Übertrag</th></tr>"
         
         cumul_total = cumulative_start
         expected_ends = info['SeriiWRundzie']
         
-        # Generujemy puste rzędy, nawet jeśli jeszcze nie ma strzał (jak na kartce)
         for end_idx in range(expected_ends):
             arrow_idx_start = end_idx * arrows_per_end
             end_scores = round_scores[arrow_idx_start:arrow_idx_start + arrows_per_end]
@@ -172,50 +156,31 @@ else:
             arrow_label = (end_idx + 1) * arrows_per_end
             
             html += "<tr>"
-            # Licznik strzał na lewo (3, 6, 9... lub 6, 12, 18...)
             html += f"<td style='border: 1px solid black; border-right: 2px solid black; padding: 4px; font-weight: bold; font-size: 14px;'>{arrow_label}</td>"
             
-            # Wpisane punkty
             for j in range(arrows_per_end):
                 if j < len(end_scores):
                     val = end_scores[j]
                     style = get_color_style(val)
-                    # Kółeczka wewnątrz kratki
                     circle = f"<div style='width: 22px; height: 22px; border-radius: 50%; {style} display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin: 0 auto; border: 1px solid #aaa;'>{val}</div>"
                     html += f"<td style='border: 1px solid black; padding: 2px;'>{circle}</td>"
                 else:
                     html += "<td style='border: 1px solid black; padding: 2px;'></td>"
             
-            # Sumy po prawej
             html += f"<td style='border: 1px solid black; border-left: 2px solid black; padding: 4px; font-weight: bold;'>{end_sum}</td>"
             html += f"<td style='border: 1px solid black; padding: 4px; font-weight: bold;'>{cumul_total if len(end_scores)>0 else ''}</td>"
             html += "</tr>"
             
-        # Stopka: Summe
-        html += f"""
-                <tr style='border-top: 2px solid black; background-color: #f9f9f9;'>
-                    <td colspan='{arrows_per_end + 1}' style='text-align: right; padding: 5px; font-weight: bold; border: 1px solid black; border-right: 2px solid black;'>Summe:</td>
-                    <td colspan='2' style='border: 2px solid black; font-weight: bold; font-size: 16px; padding: 5px;'>{r_points}</td>
-                </tr>
-            </table>
-            
-            <table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none;'>
-                <tr>
-                    <td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Treffer:<br><b style='font-size: 14px;'>{r_hits}</b></td>
-                    <td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td>
-                    <td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td>
-                    <td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Kontr.<br>&nbsp;</td>
-                </tr>
-            </table>
-        </div>
-        """
+        html += f"<tr style='border-top: 2px solid black; background-color: #f9f9f9;'><td colspan='{arrows_per_end + 1}' style='text-align: right; padding: 5px; font-weight: bold; border: 1px solid black; border-right: 2px solid black;'>Summe:</td><td colspan='2' style='border: 2px solid black; font-weight: bold; font-size: 16px; padding: 5px;'>{r_points}</td></tr></table>"
+        
+        html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none;'><tr><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Treffer:<br><b style='font-size: 14px;'>{r_hits}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Kontr.<br>&nbsp;</td></tr></table></div>"
+        
         return html, cumul_total
 
     round1_scores = scores[:st.session_state.max_arrows_per_round]
     round2_scores = scores[st.session_state.max_arrows_per_round:]
 
     if len(round1_scores) > 0 or not st.session_state.started:
-        # Zawsze pokazujemy Rundy 1, gdy zaczniemy
         html1, cumul1 = render_round_html(1, round1_scores, 0)
         st.markdown(html1, unsafe_allow_html=True)
         
