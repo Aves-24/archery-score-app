@@ -12,12 +12,12 @@ if 'started' not in st.session_state:
 if 'scores' not in st.session_state:
     st.session_state.scores = []
 
-# Domyślne wartości celownika (Z Twoich notatek!)
+# Domyślne wartości celownika wpisane "NA TWARDO" - przetrwają wyłączenie apki!
 if f"dz_{dystanse_lista[0]}" not in st.session_state:
     st.session_state[f"dz_{dystanse_lista[0]}"] = "11"  # 18m Dziurka
     st.session_state[f"sk_{dystanse_lista[0]}"] = "0.7" # 18m Skala
     
-    st.session_state[f"dz_{dystanse_lista[1]}"] = ""    # 30m Dziurka
+    st.session_state[f"dz_{dystanse_lista[1]}"] = ""    # 30m Dziurka (Uzupełnij jak będziesz znał)
     st.session_state[f"sk_{dystanse_lista[1]}"] = ""    # 30m Skala
     
     st.session_state[f"dz_{dystanse_lista[2]}"] = "11"  # 70m Dziurka
@@ -32,7 +32,6 @@ def undo_score():
         st.session_state.scores.pop()
 
 def reset():
-    # Miękki reset - czyści tarczę, ale ZACHOWUJE notatki celownika!
     st.session_state.started = False
     st.session_state.scores = []
     if 'radio_input' in st.session_state:
@@ -47,17 +46,15 @@ def handle_radio_click():
             add_score(val) 
         st.session_state.radio_input = None 
 
-# --- EKRAN STARTOWY (MINIMALISTYCZNY Z NOTATNIKIEM CELOWNIKA) ---
+# --- EKRAN STARTOWY (MINIMALISTYCZNY) ---
 if not st.session_state.started:
     
-    # Zielony baner
     st.markdown("""
     <div style='background-color: #2E8B57; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
         <h2 style='color: white; margin: 0; font-size: 26px; font-weight: bold;'>🏹 Karta Punktowa</h2>
     </div>
     """, unsafe_allow_html=True)
     
-    # Wybór: Trening czy Turniej
     event_type = st.radio("typ_wydarzenia", ["Trening", "Turniej"], horizontal=True, label_visibility="collapsed")
     
     event_name = "-"
@@ -66,26 +63,10 @@ if not st.session_state.started:
         
     st.write("") 
     
-    # --- TABELA CELOWNIKA ---
-    st.write("⚙️ **Twój notatnik celownika (Wizjer):**")
-    
-    c1, c2, c3 = st.columns([2, 1, 1])
-    c1.markdown("<span style='font-size:12px; color:gray;'>Dystans</span>", unsafe_allow_html=True)
-    c2.markdown("<span style='font-size:12px; color:gray;'>Dziurka nr</span>", unsafe_allow_html=True)
-    c3.markdown("<span style='font-size:12px; color:gray;'>Skala</span>", unsafe_allow_html=True)
-    
-    for d in dystanse_lista:
-        c1, c2, c3 = st.columns([2, 1, 1])
-        c1.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{d.split(' ')[0]}</div>", unsafe_allow_html=True) # Wypisze tylko "18m", "30m", "70m"
-        c2.text_input(f"Dz {d}", key=f"dz_{d}", label_visibility="collapsed")
-        c3.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
+    st.write("🎯 **Wybierz dystans:**")
+    dystans = st.selectbox("Dystans", dystanse_lista, label_visibility="collapsed")
 
-    st.divider()
-
-    # --- WYBÓR DZISIEJSZEGO TRENINGU ---
-    st.write("🎯 **Dzisiejsze strzelanie:**")
-    dystans = st.selectbox("Wybierz dystans", dystanse_lista, label_visibility="collapsed")
-
+    # Ustawione na sztywno
     arrows_per_end = 6
     ends_per_round = 6
 
@@ -95,19 +76,38 @@ if not st.session_state.started:
         "Nazwa": event_name if event_name.strip() else "-",
         "StrzalWSerii": arrows_per_end,
         "SeriiWRundzie": ends_per_round,
-        "Dystans": dystans,
-        "CelownikDziurka": st.session_state[f"dz_{dystans}"].strip() if st.session_state[f"dz_{dystans}"].strip() else "-",
-        "CelownikSkala": st.session_state[f"sk_{dystans}"].strip() if st.session_state[f"sk_{dystans}"].strip() else "-"
+        "Dystans": dystans
     }
 
     st.write("")
-
+    
+    # Wielki przycisk od razu pod dystansem
     if st.button("🚀 ROZPOCZNIJ STRZELANIE", type="primary", use_container_width=True):
+        # Pobieramy ustawienia celownika dla wybranego dystansu
+        base_info["CelownikDziurka"] = st.session_state[f"dz_{dystans}"].strip() if st.session_state[f"dz_{dystans}"].strip() else "-"
+        base_info["CelownikSkala"] = st.session_state[f"sk_{dystans}"].strip() if st.session_state[f"sk_{dystans}"].strip() else "-"
+        
         st.session_state.event_info = base_info
         st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
         st.session_state.max_total_arrows = st.session_state.max_arrows_per_round * 2
         st.session_state.started = True
         st.rerun()
+
+    st.divider()
+
+    # --- ZWINIĘTE USTAWIENIA CELOWNIKA (Na samym dole) ---
+    with st.expander("⚙️ Ustawienia wizjera (Zmieniaj rzadko)", expanded=False):
+        c1, c2, c3 = st.columns([2, 1, 1])
+        c1.markdown("<span style='font-size:12px; color:gray;'>Dystans</span>", unsafe_allow_html=True)
+        c2.markdown("<span style='font-size:12px; color:gray;'>Dziurka</span>", unsafe_allow_html=True)
+        c3.markdown("<span style='font-size:12px; color:gray;'>Skala</span>", unsafe_allow_html=True)
+        
+        for d in dystanse_lista:
+            c1, c2, c3 = st.columns([2, 1, 1])
+            c1.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{d.split(' ')[0]}</div>", unsafe_allow_html=True)
+            # Wpisujemy zmienne do st.session_state
+            st.text_input(f"Dz {d}", key=f"dz_{d}", label_visibility="collapsed")
+            st.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
@@ -119,7 +119,6 @@ else:
     
     def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
     
-    # --- KOMPAKTOWY NAGŁÓWEK (TERAZ Z CELOWNIKIEM!) ---
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
     celownik_tekst = ""
     if info['CelownikDziurka'] != "-" or info['CelownikSkala'] != "-":
@@ -127,7 +126,6 @@ else:
         
     st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 10px;'>{tytul} | {info['Data']} | {info['Dystans']}{celownik_tekst}</div>", unsafe_allow_html=True)
 
-    # --- KLAWIATURA RADIO ---
     st.write("Wybierz trafienie:")
     
     st.radio(
@@ -142,7 +140,6 @@ else:
 
     st.divider()
 
-    # --- KOLOROWA TABELA HTML ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
@@ -223,7 +220,7 @@ else:
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
 
-    # --- STATYSTYKI KOŃCOWE NA DOLE EKRANU ---
+    # --- STATYSTYKI KOŃCOWE ---
     total_points = sum(get_num(s) for s in scores)
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
     count_x = scores.count("X")
