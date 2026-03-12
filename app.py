@@ -69,100 +69,41 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # --- CSS GRID: Całkowicie omija ograniczenia Streamlit na telefonach ---
+    # --- BARDZO PROSTY CSS: Chroni układ przed zgnieceniem ---
     st.markdown("""
     <style>
-        /* 1. Usunięcie marginesów po bokach ekranu */
+        /* Usuwamy marginesy telefonu, żeby klawiatura była jak najszersza */
         .block-container {
-            padding-left: 0.4rem !important;
-            padding-right: 0.4rem !important;
+            padding-left: 0.2rem !important;
+            padding-right: 0.2rem !important;
             max-width: 100% !important;
             overflow-x: hidden !important;
         }
 
-        /* 2. ZAMIANA KONTENERA W TWARDĄ SIATKĘ 4x4 */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) {
-            display: grid !important;
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 6px !important;
-            width: 100% !important;
-            padding: 10px 0 !important;
+        /* Najważniejsza linijka: Blokuje układanie kolumn w pionie na telefonie */
+        @media (max-width: 800px) {
+            div[data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                gap: 4px !important;
+            }
+            div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+                width: auto !important;
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+            }
         }
 
-        /* 3. Ukrywamy sam znacznik, żeby nie psuł siatki */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:has(#keypad_marker) {
-            display: none !important;
-        }
-
-        /* 4. Rozciągamy kontenery guzików do krawędzi komórek w siatce */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div {
-            width: 100% !important;
-            min-width: 0 !important;
-        }
-
-        /* 5. Przycisk COFNIJ (ostatni, nr 15) ma zająć 3 kolumny */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(15) {
-            grid-column: span 3 !important;
-        }
-
-        /* 6. Wygląd guzików (grube, prostokątne) */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) div.stButton > button {
-            width: 100% !important;
-            height: 65px !important;
-            font-size: 24px !important;
-            font-weight: 900 !important;
+        /* Ustawiamy duże przyciski, żeby dało się w nie trafić */
+        div.stButton > button {
+            height: 60px !important;
             border-radius: 8px !important;
-            border: none !important;
-            box-shadow: 0 4px 0px rgba(0,0,0,0.2) !important;
-            transition: transform 0.1s, box-shadow 0.1s !important;
-        }
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) div.stButton > button:active {
-            transform: translateY(4px) !important;
-            box-shadow: 0 0px 0px rgba(0,0,0,0) !important;
-        }
-
-        /* --- 7. TWARDE KOLORY (Przypisane do miejsc w siatce) --- */
-        
-        /* Zółty: X, 10, 9 (Dzieci: 2, 3, 4) */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(2) button,
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(3) button,
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(4) button { 
-            background-color: #FCE205 !important; color: black !important; 
-        }
-        
-        /* Czerwony: 8, 7 (Dzieci: 5, 6) */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(5) button,
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(6) button { 
-            background-color: #E53935 !important; color: white !important; 
-        }
-        
-        /* Niebieski: 6, 5 (Dzieci: 7, 8) */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(7) button,
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(8) button { 
-            background-color: #039BE5 !important; color: white !important; 
-        }
-        
-        /* Czarny: 4, 3 (Dzieci: 9, 10) */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(9) button,
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(10) button { 
-            background-color: #212121 !important; color: white !important; 
-        }
-        
-        /* Biały: 2, 1, M (Dzieci: 11, 12, 13) */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(11) button,
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(12) button,
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(13) button { 
-            background-color: #FFFFFF !important; color: black !important; border: 2px solid #E0E0E0 !important; box-shadow: 0 4px 0px rgba(0,0,0,0.1) !important;
-        }
-        
-        /* Zegar (Dziecko: 14) */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(14) button { 
-            background-color: #F0F3F4 !important; color: black !important; font-size: 28px !important; 
-        }
-        
-        /* Cofnij (Dziecko: 15) */
-        div[data-testid="stVerticalBlock"]:has(#keypad_marker) > div:nth-child(15) button { 
-            background-color: #5DADE2 !important; color: white !important; 
+            font-size: 16px !important;
+            font-weight: 900 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -192,32 +133,36 @@ else:
 
     st.divider()
 
-    # --- NOWA KLAWIATURA (Bez użycia st.columns!) ---
-    # Pakujemy wszystko w kontener, a nasza siatka CSS wyżej sama poukłada je 4 w rzędzie
-    with st.container():
-        st.markdown('<div id="keypad_marker"></div>', unsafe_allow_html=True) # Znacznik dla CSS
-        
-        st.button("X", on_click=add_score, args=("X",), use_container_width=True)
-        st.button("10", on_click=add_score, args=("10",), use_container_width=True)
-        st.button("9", on_click=add_score, args=("9",), use_container_width=True)
-        st.button("8", on_click=add_score, args=("8",), use_container_width=True)
-        
-        st.button("7", on_click=add_score, args=("7",), use_container_width=True)
-        st.button("6", on_click=add_score, args=("6",), use_container_width=True)
-        st.button("5", on_click=add_score, args=("5",), use_container_width=True)
-        st.button("4", on_click=add_score, args=("4",), use_container_width=True)
-        
-        st.button("3", on_click=add_score, args=("3",), use_container_width=True)
-        st.button("2", on_click=add_score, args=("2",), use_container_width=True)
-        st.button("1", on_click=add_score, args=("1",), use_container_width=True)
-        st.button("M", on_click=add_score, args=("M",), use_container_width=True)
-        
-        st.button("⏱️", disabled=True, use_container_width=True)
-        st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True)
+    # --- KLAWIATURA Z KULOOODPORNYMI EMOJI ---
+    # Rząd 1
+    col1, col2, col3, col4 = st.columns(4)
+    with col1: st.button("🟡 X", on_click=add_score, args=("X",), use_container_width=True)
+    with col2: st.button("🟡 10", on_click=add_score, args=("10",), use_container_width=True)
+    with col3: st.button("🟡 9", on_click=add_score, args=("9",), use_container_width=True)
+    with col4: st.button("🔴 8", on_click=add_score, args=("8",), use_container_width=True)
+    
+    # Rząd 2
+    col5, col6, col7, col8 = st.columns(4)
+    with col5: st.button("🔴 7", on_click=add_score, args=("7",), use_container_width=True)
+    with col6: st.button("🔵 6", on_click=add_score, args=("6",), use_container_width=True)
+    with col7: st.button("🔵 5", on_click=add_score, args=("5",), use_container_width=True)
+    with col8: st.button("⚫ 4", on_click=add_score, args=("4",), use_container_width=True)
+    
+    # Rząd 3
+    col9, col10, col11, col12 = st.columns(4)
+    with col9: st.button("⚫ 3", on_click=add_score, args=("3",), use_container_width=True)
+    with col10: st.button("⚪ 2", on_click=add_score, args=("2",), use_container_width=True)
+    with col11: st.button("⚪ 1", on_click=add_score, args=("1",), use_container_width=True)
+    with col12: st.button("⚪ M", on_click=add_score, args=("M",), use_container_width=True)
+    
+    # Rząd 4
+    col13, col14 = st.columns([1, 3])
+    with col13: st.button("⏱️", disabled=True, use_container_width=True)
+    with col14: st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
-    # --- TABELA HTML ---
+    # --- TABELA HTML (Tutaj kolorowe tła działają, bo to zwykły stary HTML) ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
