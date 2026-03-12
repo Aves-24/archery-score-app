@@ -19,12 +19,10 @@ def undo_score():
     if len(st.session_state.scores) > 0:
         st.session_state.scores.pop()
 
+# --- TOTALNE CZYSZCZENIE (NAPRAWA BŁĘDÓW) ---
 def reset():
-    st.session_state.started = False
-    st.session_state.scores = []
-    st.session_state.radio_input = None
+    st.session_state.clear() # Opcja Nuklearna - usuwa wszystkie śmieci z pamięci!
 
-# --- ZAKTUALIZOWANA FUNKCJA RADIO ---
 def handle_radio_click():
     val = st.session_state.radio_input
     if val == "⌫":
@@ -57,14 +55,11 @@ if not st.session_state.started:
         "SeriiWRundzie": ends_per_round
     }
 
-    max_arrows_per_round = arrows_per_end * ends_per_round
-    max_total_arrows = max_arrows_per_round * 2
-
     def start_session(dystans):
         st.session_state.event_info = base_info
         st.session_state.event_info["Dystans"] = dystans
-        st.session_state.max_arrows_per_round = max_arrows_per_round
-        st.session_state.max_total_arrows = max_total_arrows
+        st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
+        st.session_state.max_total_arrows = st.session_state.max_arrows_per_round * 2
         st.session_state.started = True
         st.rerun()
 
@@ -197,7 +192,6 @@ else:
     st.markdown("### 📊 Wynik Całkowity (Mecz)")
     col_s1, col_s2, col_s3 = st.columns(3)
     col_s1.metric("Punkty", f"{total_points} / {max_total_score}")
-    # Tutaj był błąd - dodałem st.session_state do max_total_arrows!
     col_s2.metric("Strzały", f"{len(scores)} / {st.session_state.max_total_arrows}")
     col_s3.metric("Skuteczność", f"{percent:.1f}%")
     
