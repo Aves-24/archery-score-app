@@ -69,41 +69,38 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # --- BARDZO PROSTY CSS: Chroni układ przed zgnieceniem ---
+    # --- NAJPROSTSZY I NAJBEZPIECZNIEJSZY CSS NA ŚWIECIE ---
     st.markdown("""
     <style>
-        /* Usuwamy marginesy telefonu, żeby klawiatura była jak najszersza */
+        /* Obcinamy marginesy ekranu telefonu do absolutnego minimum */
         .block-container {
-            padding-left: 0.2rem !important;
-            padding-right: 0.2rem !important;
-            max-width: 100% !important;
-            overflow-x: hidden !important;
+            padding-left: 5px !important;
+            padding-right: 5px !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important; 
         }
 
-        /* Najważniejsza linijka: Blokuje układanie kolumn w pionie na telefonie */
-        @media (max-width: 800px) {
-            div[data-testid="stHorizontalBlock"] {
-                display: flex !important;
-                flex-direction: row !important;
-                flex-wrap: nowrap !important;
-                gap: 4px !important;
-            }
-            div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-                width: auto !important;
-                flex: 1 1 0% !important;
-                min-width: 0 !important;
-            }
-        }
-
-        /* Ustawiamy duże przyciski, żeby dało się w nie trafić */
-        div.stButton > button {
-            height: 60px !important;
-            border-radius: 8px !important;
-            font-size: 16px !important;
-            font-weight: 900 !important;
-            padding: 0 !important;
-            margin: 0 !important;
+        /* MAGICZNA REGUŁA: Zmusza kolumny do stania twardo w jednym rzędzie */
+        div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
             width: 100% !important;
+        }
+        
+        /* KLUCZ DO SUKCESU: Powstrzymuje telefon przed rozpychaniem w bok */
+        div[data-testid="column"] {
+            min-width: 0 !important; 
+            padding: 0 2px !important;
+        }
+
+        /* Ustawienia guzika: duże, czytelne i nie wychodzące poza ekran */
+        div.stButton > button {
+            width: 100% !important;
+            height: 60px !important;
+            font-size: 16px !important;
+            font-weight: bold !important;
+            padding: 0 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -133,36 +130,32 @@ else:
 
     st.divider()
 
-    # --- KLAWIATURA Z KULOOODPORNYMI EMOJI ---
-    # Rząd 1
+    # --- KLAWIATURA Z KULOODPORNYMI EMOJI (Zadziała na każdym telefonie) ---
     col1, col2, col3, col4 = st.columns(4)
     with col1: st.button("🟡 X", on_click=add_score, args=("X",), use_container_width=True)
     with col2: st.button("🟡 10", on_click=add_score, args=("10",), use_container_width=True)
     with col3: st.button("🟡 9", on_click=add_score, args=("9",), use_container_width=True)
     with col4: st.button("🔴 8", on_click=add_score, args=("8",), use_container_width=True)
     
-    # Rząd 2
     col5, col6, col7, col8 = st.columns(4)
     with col5: st.button("🔴 7", on_click=add_score, args=("7",), use_container_width=True)
     with col6: st.button("🔵 6", on_click=add_score, args=("6",), use_container_width=True)
     with col7: st.button("🔵 5", on_click=add_score, args=("5",), use_container_width=True)
     with col8: st.button("⚫ 4", on_click=add_score, args=("4",), use_container_width=True)
     
-    # Rząd 3
     col9, col10, col11, col12 = st.columns(4)
     with col9: st.button("⚫ 3", on_click=add_score, args=("3",), use_container_width=True)
     with col10: st.button("⚪ 2", on_click=add_score, args=("2",), use_container_width=True)
     with col11: st.button("⚪ 1", on_click=add_score, args=("1",), use_container_width=True)
     with col12: st.button("⚪ M", on_click=add_score, args=("M",), use_container_width=True)
     
-    # Rząd 4
     col13, col14 = st.columns([1, 3])
     with col13: st.button("⏱️", disabled=True, use_container_width=True)
     with col14: st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
-    # --- TABELA HTML (Tutaj kolorowe tła działają, bo to zwykły stary HTML) ---
+    # --- TABELA HTML (Kolorowe tła działają tu zawsze) ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
