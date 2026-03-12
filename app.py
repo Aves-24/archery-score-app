@@ -69,38 +69,44 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # --- NAJPROSTSZY I NAJBEZPIECZNIEJSZY CSS NA ŚWIECIE ---
+    # --- PANCERNY KOD NA ANDROIDA ---
     st.markdown("""
     <style>
-        /* Obcinamy marginesy ekranu telefonu do absolutnego minimum */
+        /* 1. Reset całkowity marginesów aplikacji */
         .block-container {
-            padding-left: 5px !important;
-            padding-right: 5px !important;
+            padding-top: 1rem !important;
+            padding-left: 0.1rem !important;
+            padding-right: 0.1rem !important;
             max-width: 100vw !important;
             overflow-x: hidden !important; 
         }
 
-        /* MAGICZNA REGUŁA: Zmusza kolumny do stania twardo w jednym rzędzie */
+        /* 2. GŁÓWNY FIX NA WYJEŻDŻANIE ZA EKRAN (Usuwamy domyślne przerwy "gap" telefonu) */
         div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
+            gap: 0 !important; /* TO NAPRAWIA TWÓJ BŁĄD! */
             width: 100% !important;
-        }
-        
-        /* KLUCZ DO SUKCESU: Powstrzymuje telefon przed rozpychaniem w bok */
-        div[data-testid="column"] {
-            min-width: 0 !important; 
-            padding: 0 2px !important;
+            margin: 0 !important;
         }
 
-        /* Ustawienia guzika: duże, czytelne i nie wychodzące poza ekran */
+        /* 3. Zmuszamy kolumny do równego dzielenia 100% ekranu */
+        div[data-testid="column"] {
+            flex: 1 1 0% !important; /* Magia: jak są 4 kolumny to dają idealnie 25% */
+            width: auto !important;
+            min-width: 0 !important; /* Zapobiega panice Androida i łamaniu w dół */
+            padding: 0 3px !important; /* Drobny odstęp wizualny między przyciskami wewnątrz klatki */
+        }
+
+        /* 4. Same przyciski - grube i równe */
         div.stButton > button {
             width: 100% !important;
-            height: 60px !important;
-            font-size: 16px !important;
-            font-weight: bold !important;
+            height: 65px !important;
+            font-size: 18px !important;
+            font-weight: 900 !important;
             padding: 0 !important;
+            border-radius: 6px !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -122,15 +128,10 @@ else:
 
     # --- NAGŁÓWEK ---
     st.markdown(f"### {info['Typ']} ({info['Data']})")
-    col_stat1, col_stat2 = st.columns(2)
-    with col_stat1:
-        st.write(f"Strzały: **{len(scores)}/{st.session_state.max_total_arrows}**")
-    with col_stat2:
-        st.write(f"Punkty: **{total_points}/{max_total_score} ({percent:.0f}%)**")
-
+    st.markdown(f"**Strzały:** {len(scores)}/{st.session_state.max_total_arrows} &nbsp; | &nbsp; **Punkty:** {total_points}/{max_total_score} ({percent:.0f}%)")
     st.divider()
 
-    # --- KLAWIATURA Z KULOODPORNYMI EMOJI (Zadziała na każdym telefonie) ---
+    # --- KLAWIATURA 4x4 (Emoji Gwarantują Kolor na Androidzie) ---
     col1, col2, col3, col4 = st.columns(4)
     with col1: st.button("🟡 X", on_click=add_score, args=("X",), use_container_width=True)
     with col2: st.button("🟡 10", on_click=add_score, args=("10",), use_container_width=True)
@@ -149,13 +150,14 @@ else:
     with col11: st.button("⚪ 1", on_click=add_score, args=("1",), use_container_width=True)
     with col12: st.button("⚪ M", on_click=add_score, args=("M",), use_container_width=True)
     
-    col13, col14 = st.columns([1, 3])
+    # Dolny wiersz (Podzieli się idealnie 50/50 na ekranie)
+    col13, col14 = st.columns(2)
     with col13: st.button("⏱️", disabled=True, use_container_width=True)
     with col14: st.button("⌫ COFNIJ", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
-    # --- TABELA HTML (Kolorowe tła działają tu zawsze) ---
+    # --- TABELA HTML (Tu kolory będą 100% działać, bo to czysty HTML, bez Streamlit) ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
