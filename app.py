@@ -24,14 +24,14 @@ def reset():
     st.session_state.scores = []
     st.session_state.radio_input = None
 
-# --- ZAKTUALIZOWANA FUNKCJA RADIO (Obsługuje cofanie!) ---
+# --- ZAKTUALIZOWANA FUNKCJA RADIO ---
 def handle_radio_click():
     val = st.session_state.radio_input
     if val == "⌫":
-        undo_score() # Jeśli wybrano ikonę cofania
+        undo_score() 
     elif val is not None:
-        add_score(val) # Jeśli wybrano normalny punkt
-    st.session_state.radio_input = None # Zawsze odklikaj
+        add_score(val) 
+    st.session_state.radio_input = None 
 
 # --- EKRAN STARTOWY ---
 if not st.session_state.started:
@@ -92,12 +92,12 @@ else:
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
     st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 10px;'>{tytul} | {info['Data']} | {info['Dystans']}</div>", unsafe_allow_html=True)
 
-    # --- KLAWIATURA RADIO Z WBUDOWANYM COFANIEM ---
+    # --- KLAWIATURA RADIO ---
     st.write("Wybierz trafienie:")
     
     st.radio(
         "Punkty",
-        options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], # Dodana ikona cofania!
+        options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], 
         horizontal=True,
         index=None, 
         key="radio_input", 
@@ -197,7 +197,8 @@ else:
     st.markdown("### 📊 Wynik Całkowity (Mecz)")
     col_s1, col_s2, col_s3 = st.columns(3)
     col_s1.metric("Punkty", f"{total_points} / {max_total_score}")
-    col_s2.metric("Strzały", f"{len(scores)} / {max_total_arrows}")
+    # Tutaj był błąd - dodałem st.session_state do max_total_arrows!
+    col_s2.metric("Strzały", f"{len(scores)} / {st.session_state.max_total_arrows}")
     col_s3.metric("Skuteczność", f"{percent:.1f}%")
     
     st.write(f"**Suma 10+X:** {count_10 + count_x} &nbsp;&nbsp;|&nbsp;&nbsp; **Same X:** {count_x}")
