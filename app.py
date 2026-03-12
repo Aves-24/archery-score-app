@@ -122,7 +122,7 @@ else:
         if val == "M": return "background-color: #9e9e9e; color: white;"
         return "background-color: transparent;"
 
-    # --- PŁASKI HTML BEZ WCIĘĆ (Gwarancja rysowania tabeli) ---
+    # --- TABELA HTML ---
     def render_round_html(round_num, round_scores, cumulative_start):
         r_points = sum(get_num(s) for s in round_scores)
         r_hits = len([s for s in round_scores if s != "M"])
@@ -165,7 +165,7 @@ else:
                     circle = f"<div style='width: 22px; height: 22px; border-radius: 50%; {style} display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin: 0 auto; border: 1px solid #aaa;'>{val}</div>"
                     html += f"<td style='border: 1px solid black; padding: 2px;'>{circle}</td>"
                 else:
-                    html += "<td style='border: 1px solid black; padding: 2px;'></td>"
+                    html += "<td style='padding: 2px;'></td>"
             
             html += f"<td style='border: 1px solid black; border-left: 2px solid black; padding: 4px; font-weight: bold;'>{end_sum}</td>"
             html += f"<td style='border: 1px solid black; padding: 4px; font-weight: bold;'>{cumul_total if len(end_scores)>0 else ''}</td>"
@@ -180,11 +180,19 @@ else:
     round1_scores = scores[:st.session_state.max_arrows_per_round]
     round2_scores = scores[st.session_state.max_arrows_per_round:]
 
-    if len(round1_scores) > 0 or not st.session_state.started:
+    # --- INTELIGENTNE WYŚWIETLANIE RUND ---
+    if len(round2_scores) == 0:
+        # Strzelamy Rundę 1 - pokazujemy ją normalnie
+        if len(round1_scores) > 0 or not st.session_state.started:
+            html1, cumul1 = render_round_html(1, round1_scores, 0)
+            st.markdown(html1, unsafe_allow_html=True)
+    else:
+        # Strzelamy Rundę 2! Zwijamy Rundę 1 do małego paska
         html1, cumul1 = render_round_html(1, round1_scores, 0)
-        st.markdown(html1, unsafe_allow_html=True)
+        with st.expander("✅ Runda 1 (Zakończona - kliknij, aby rozwinąć)", expanded=False):
+            st.markdown(html1, unsafe_allow_html=True)
         
-    if len(round2_scores) > 0:
+        # Wyświetlamy Rundę 2 na samej górze
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
 
