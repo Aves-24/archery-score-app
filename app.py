@@ -8,7 +8,6 @@ if 'started' not in st.session_state:
     st.session_state.started = False
 if 'scores' not in st.session_state:
     st.session_state.scores = []
-# Zmienna pilnująca naszego sprytnego przycisku Radio
 if 'radio_input' not in st.session_state:
     st.session_state.radio_input = None
 
@@ -25,13 +24,11 @@ def reset():
     st.session_state.scores = []
     st.session_state.radio_input = None
 
-# --- TWOJA GENIALNA FUNKCJA RESETUJĄCA ---
 def handle_radio_click():
-    # Pobieramy to, co właśnie kliknąłeś
     val = st.session_state.radio_input
     if val is not None:
-        add_score(val) # Zapisujemy do tabeli
-        st.session_state.radio_input = None # Natychmiast "odklikujemy" przycisk!
+        add_score(val)
+        st.session_state.radio_input = None
 
 # --- EKRAN STARTOWY ---
 if not st.session_state.started:
@@ -95,31 +92,27 @@ else:
     avg = total_points / len(scores) if len(scores) > 0 else 0
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
 
-    # --- NAGŁÓWEK ---
     st.markdown(f"### {info['Typ']} ({info['Data']})")
     st.markdown(f"**Strzały:** {len(scores)}/{st.session_state.max_total_arrows} &nbsp;&nbsp;|&nbsp;&nbsp; **Punkty:** {total_points}/{max_total_score} ({percent:.0f}%)")
     st.divider()
 
-    # --- TWOJA NOWA, SZYBKA KLAWIATURA ---
     st.write("Wybierz trafienie (zapisuje się automatycznie):")
     
-    # Przycisk Radio podłączony do funkcji czyszczącej
     st.radio(
         "Punkty",
         options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M"],
         horizontal=True,
-        index=None, # Na starcie nic nie jest zaznaczone
-        key="radio_input", # Połączenie ze zmienną
-        on_change=handle_radio_click, # Funkcja wywoływana OD RAZU po kliknięciu
+        index=None, 
+        key="radio_input", 
+        on_change=handle_radio_click, 
         label_visibility="collapsed"
     )
     
-    st.write("") # Drobny odstęp
+    st.write("") 
     st.button("⌫ Cofnij ostatnią strzałę", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
-    # --- KOLOROWA TABELA HTML ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
@@ -134,12 +127,13 @@ else:
         r_max_current = len(round_scores) * 10
         r_percent = (r_points / r_max_current * 100) if r_max_current > 0 else 0
         
+        # --- FIX: Dodano color: #000000; do nagłówków tabeli (th) ---
         html = f"""
         <div style='margin-bottom: 20px; font-family: Arial, sans-serif;'>
             <b>Runda {round_num}</b><br>
             Punkty: <b>{r_points}/{max_round_score} ({r_percent:.0f}%)</b>
             <table style='width: 100%; border-collapse: collapse; text-align: center; margin-top: 5px;'>
-                <tr style='background-color: #f2f2f2; border-bottom: 2px solid #ddd;'>
+                <tr style='background-color: #f2f2f2; color: #000000; border-bottom: 2px solid #ddd;'>
                     <th colspan='{arrows_per_end}' style='padding: 5px; border: 1px solid #ddd;'>Strzały</th>
                     <th style='padding: 5px; border: 1px solid #ddd;'>Suma</th>
                     <th style='padding: 5px; border: 1px solid #ddd;'>Razem</th>
