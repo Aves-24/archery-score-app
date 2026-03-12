@@ -88,33 +88,27 @@ else:
     st.markdown(f"**Strzały:** {len(scores)}/{st.session_state.max_total_arrows} &nbsp; | &nbsp; **Punkty:** {total_points}/{max_total_score} ({percent:.0f}%)")
     st.divider()
 
-    # --- BEZPIECZNA KLAWIATURA NATYWNA (3 kolumny) ---
-    st.write("Wprowadź punkty:")
-    col1, col2, col3 = st.columns(3)
+    # --- NOWA, ODPORNA NA ANDROIDA KLAWIATURA ---
+    st.write("Wybierz trafienie:")
     
-    with col1:
-        st.button("🟡 X", on_click=add_score, args=("X",), use_container_width=True)
-        st.button("🔴 8", on_click=add_score, args=("8",), use_container_width=True)
-        st.button("🔵 5", on_click=add_score, args=("5",), use_container_width=True)
-        st.button("⚪ 2", on_click=add_score, args=("2",), use_container_width=True)
-        
-    with col2:
-        st.button("🟡 10", on_click=add_score, args=("10",), use_container_width=True)
-        st.button("🔴 7", on_click=add_score, args=("7",), use_container_width=True)
-        st.button("⚫ 4", on_click=add_score, args=("4",), use_container_width=True)
-        st.button("⚪ 1", on_click=add_score, args=("1",), use_container_width=True)
-        
-    with col3:
-        st.button("🟡 9", on_click=add_score, args=("9",), use_container_width=True)
-        st.button("🔵 6", on_click=add_score, args=("6",), use_container_width=True)
-        st.button("⚫ 3", on_click=add_score, args=("3",), use_container_width=True)
-        st.button("⚪ M", on_click=add_score, args=("M",), use_container_width=True)
+    # Natywny element Streamlit - zawija się automatycznie i ładnie na każdym ekranie!
+    selected_score = st.radio(
+        "Wybierz punkty",
+        options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    # Wielki przycisk akcji - nie da się w niego nie trafić
+    if st.button(f"📥 ZAPISZ STRZAŁĘ: {selected_score}", type="primary", use_container_width=True):
+        add_score(selected_score)
+        st.rerun()
 
-    st.button("⌫ COFNIJ OSTATNIĄ STRZAŁĘ", on_click=undo_score, use_container_width=True)
+    st.button("⌫ Cofnij ostatnią strzałę", on_click=undo_score, use_container_width=True)
 
     st.divider()
 
-    # --- KOLOROWA TABELA HTML ---
+    # --- KOLOROWA TABELA HTML (To działało idealnie) ---
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
@@ -175,6 +169,6 @@ else:
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
 
-    if st.button("Zakończ strzelanie i Zapisz (Wkrótce Google Sheets)", type="primary", use_container_width=True):
+    if st.button("Zakończ strzelanie (Wkrótce Google Sheets)", type="secondary", use_container_width=True):
         reset()
         st.rerun()
