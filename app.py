@@ -19,9 +19,8 @@ def undo_score():
     if len(st.session_state.scores) > 0:
         st.session_state.scores.pop()
 
-# --- TOTALNE CZYSZCZENIE (NAPRAWA BŁĘDÓW) ---
 def reset():
-    st.session_state.clear() # Opcja Nuklearna - usuwa wszystkie śmieci z pamięci!
+    st.session_state.clear()
 
 def handle_radio_click():
     val = st.session_state.radio_input
@@ -31,47 +30,52 @@ def handle_radio_click():
         add_score(val) 
     st.session_state.radio_input = None 
 
-# --- EKRAN STARTOWY ---
+# --- EKRAN STARTOWY (NOWY, KOMPAKTOWY WYGLĄD) ---
 if not st.session_state.started:
     st.title("🏹 Karta Punktowa")
+    st.write("Skonfiguruj swoje strzelanie:")
     
-    col_a, col_b = st.columns(2)
-    with col_a:
-        event_type = st.radio("Wydarzenie:", ["Trening", "Turniej"])
-    with col_b:
-        arrows_per_end = st.radio("Strzał w serii:", [3, 6], index=1)
+    st.divider()
+    
+    # 1. Wybór typu (poziomo)
+    event_type = st.radio("Wydarzenie:", ["Trening", "Turniej"], horizontal=True)
+    
+    # 2. Nazwa pojawia się tylko dla Turnieju
+    event_name = "-"
+    if event_type == "Turniej":
+        event_name = st.text_input("Nazwa turnieju:", placeholder="np. Mistrzostwa Klubu")
         
-    event_name = st.text_input("Nazwa (opcjonalnie):", placeholder="np. Kwalifikacje")
-    ends_per_round = st.number_input("Ilość serii w rundzie:", min_value=1, value=6)
+    st.write("") # Drobny odstęp
     
-    st.subheader("Wybierz Dystans i Tarczę:")
-    col1, col2, col3 = st.columns(3)
+    # 3. Kompaktowy układ: Ilość serii obok wyboru Dystansu
+    col1, col2 = st.columns(2)
+    with col1:
+        ends_per_round = st.number_input("Serii w rundzie:", min_value=1, value=6, help="Po 6 strzał w serii")
+    with col2:
+        dystans = st.selectbox("Dystans i Tarcza:", ["18m (Spot)", "30m (80cm)", "70m (120cm)"])
+
+    # Strzały w serii ustawione na twardo na 6 (usunięte z interfejsu)
+    arrows_per_end = 6
 
     base_info = {
         "Data": date.today().strftime("%d.%m.%Y"),
         "Typ": event_type,
-        "Nazwa": event_name if event_name else "-",
+        "Nazwa": event_name if event_name.strip() else "-",
         "StrzalWSerii": arrows_per_end,
-        "SeriiWRundzie": ends_per_round
+        "SeriiWRundzie": ends_per_round,
+        "Dystans": dystans
     }
 
-    def start_session(dystans):
+    st.write("")
+    st.write("")
+
+    # 4. Jeden wielki przycisk startu
+    if st.button("🚀 ROZPOCZNIJ STRZELANIE", type="primary", use_container_width=True):
         st.session_state.event_info = base_info
-        st.session_state.event_info["Dystans"] = dystans
         st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
         st.session_state.max_total_arrows = st.session_state.max_arrows_per_round * 2
         st.session_state.started = True
         st.rerun()
-
-    with col1:
-        st.markdown("<div style='text-align: center; font-size: 30px;'>🎯<br>🎯<br>🎯</div>", unsafe_allow_html=True)
-        if st.button("18m (Spot)", use_container_width=True): start_session("18m")
-    with col2:
-        st.markdown("<div style='text-align: center; font-size: 60px; margin: 15px 0;'>🎯</div>", unsafe_allow_html=True)
-        if st.button("30m (80cm)", use_container_width=True): start_session("30m")
-    with col3:
-        st.markdown("<div style='text-align: center; font-size: 60px; margin: 15px 0;'>🎯</div>", unsafe_allow_html=True)
-        if st.button("70m (120cm)", use_container_width=True): start_session("70m")
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
