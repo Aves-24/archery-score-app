@@ -100,7 +100,7 @@ if 'lang' not in st.session_state:
 lang = st.session_state.lang
 
 # --- POBIERANIE DANYCH Z GOOGLE (DO STATYSTYK) ---
-@st.cache_data(ttl=30) # Pamięta dane przez 30 sekund, żeby nie obciążać API
+@st.cache_data(ttl=30)
 def pobierz_dane_z_arkusza():
     try:
         klucz_tekst = st.secrets["google_credentials"]
@@ -111,7 +111,6 @@ def pobierz_dane_z_arkusza():
         zapisy = worksheet.get_all_records()
         if zapisy:
             df = pd.DataFrame(zapisy)
-            # Konwersja kolumn na liczby, żeby wykres działał poprawnie
             kolumny_liczbowe = ["Punkty", "Same X", "10", "9", "M", "Strzały (Suma)"]
             for col in kolumny_liczbowe:
                 if col in df.columns:
@@ -130,7 +129,6 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
         sh = gc.open(NAZWA_ARKUSZA)
         worksheet = sh.get_worksheet(0) 
         
-        # Nowe pełne nagłówki (jeśli arkusz jest całkiem pusty)
         if not worksheet.row_values(1):
             naglowki = ["Data", "Czas", "Typ", "Nazwa", "Dystans", "Punkty", "Max", "Skuteczność %", "Strzały (Suma)", "10+X", "Same X", "Wizjer Dziurka", "Wizjer Skala", "10", "9", "M"]
             worksheet.append_row(naglowki)
@@ -150,13 +148,13 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
             statystyki["X"],
             dane_treningu["CelownikDziurka"],
             dane_treningu["CelownikSkala"],
-            statystyki["10"], # Nowe!
-            statystyki["9"],  # Nowe!
-            statystyki["M"]   # Nowe!
+            statystyki["10"], 
+            statystyki["9"],  
+            statystyki["M"]   
         ]
         
         worksheet.append_row(wiersz)
-        st.cache_data.clear() # Czyścimy pamięć cache, żeby statystyki od razu zobaczyły nowy wynik!
+        st.cache_data.clear()
         return True
     except Exception as e:
         print(f"Błąd zapisu do Google Sheets: {e}")
@@ -356,7 +354,7 @@ with tab_karta:
         def render_round_html(round_num, round_scores, cumulative_start):
             r_points = sum(get_num(s) for s in round_scores)
             r_xs = round_scores.count("X")
-            r_10s = round_scores.count("10")
+            r_10s = round_scores.count("10") + r_xs # W tabeli HTML X zawsze dodawał się do dziesiątek!
             r_9s = round_scores.count("9")
             r_max_current = len(round_scores) * 10
             r_percent = (r_points / r_max_current * 100) if r_max_current > 0 else 0
@@ -422,8 +420,11 @@ with tab_karta:
         total_points = sum(get_num(s) for s in scores)
         percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
         total_arrows_shot = len(scores) + st.session_state.extra_arrows
+        
         count_x = scores.count("X")
-        count_10 = scores.count("10")
+        count_10_czyste = scores.count("10")
+        count_10_total = count_10_czyste + count_x # W łucznictwie każdy X to "dziesiątka"!
+        
         count_9 = scores.count("9")
         count_m = scores.count("M")
         
@@ -433,7 +434,8 @@ with tab_karta:
         col_s2.metric(T[lang]["arrow_cnt"], f"{total_arrows_shot}")
         col_s3.metric(T[lang]["eff"], f"{percent:.1f}%")
         
-        st.write(f"**{T[lang]['sum_10_x']}** {count_10 + count_x} &nbsp;&nbsp;|&nbsp;&nbsp; **{T[lang]['only_x']}** {count_x}")
+        # Zaktualizowany widok (Suma 10+X już po prostu pobiera poprawne count_10_total)
+        st.write(f"**{T[lang]['sum_10_x']}** {count_10_total} &nbsp;&nbsp;|&nbsp;&nbsp; **{T[lang]['only_x']}** {count_x}")
         st.write("")
         
         st.markdown(f"<span style='font-size:14px; color:gray;'>{T[lang]['warmup']}</span>", unsafe_allow_html=True)
@@ -450,9 +452,9 @@ with tab_karta:
                 "Max": max_total_score,
                 "Skuteczność": percent,
                 "Strzały": total_arrows_shot,
-                "10_i_X": count_10 + count_x,
+                "10_i_X": count_10_total, 
                 "X": count_x,
-                "10": count_10,
+                "10": count_10_total, # Zapisujemy poprawną, zsumowaną liczbę dziesiątek
                 "9": count_9,
                 "M": count_m
             }
@@ -485,20 +487,19 @@ with tab_staty:
         else:
             st.divider()
             
-            # Wybór co chcemy pokazać na wykresie
             st.write(f"**{T[lang]['stat_metric']}**")
             
             opcje_metryk = {
                 "Punkty": "Punkty", 
                 "Same X": "Same X", 
-                "10": "10", 
+                "Wszystkie 10": "10", 
                 "9": "9", 
                 "M (Pudła)": "M", 
                 "Strzały (Suma)": "Strzały (Suma)"
             } if lang == "PL" else {
                 "Punkte": "Punkty", 
                 "Nur X": "Same X", 
-                "10er": "10", 
+                "Alle 10er": "10", 
                 "9er": "9", 
                 "M (Fehler)": "M", 
                 "Pfeile (Summe)": "Strzały (Suma)"
@@ -507,18 +508,15 @@ with tab_staty:
             wybrana_metryka_klucz = st.radio("Metryka", list(opcje_metryk.keys()), horizontal=True, label_visibility="collapsed")
             kolumna_y = opcje_metryk[wybrana_metryka_klucz]
             
-            # Wymuszamy, by kolumna z datą nie łączyła dni, jeśli strzelałeś 2 razy tego samego dnia
-            df_filtrowane = df_filtrowane.copy() # Zapobiega błędom modyfikacji
+            df_filtrowane = df_filtrowane.copy() 
             df_filtrowane["Sesja"] = df_filtrowane["Data"] + " (" + df_filtrowane["Czas"].astype(str).str[:5] + ")"
             
-            # Słownik kolorów - Trening na ZIELONO, Turniej na NIEBIESKO
-            # (Uwzględniam tu też nazwy niemieckie, jeśli masz w starych danych)
             domena_typow = [T["PL"]["training"], T["PL"]["tournament"], T["DE"]["training"], T["DE"]["tournament"]]
             zakres_kolorow = ['#2E8B57', '#1E88E5', '#2E8B57', '#1E88E5']
             kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
             
             wykres = alt.Chart(df_filtrowane).mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-                x=alt.X('Sesja:N', title='Data', sort=None), # sort=None utrzymuje oryginalną chronologię z arkusza
+                x=alt.X('Sesja:N', title='Data', sort=None), 
                 y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz),
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
                 tooltip=['Data', 'Czas', 'Nazwa', 'Punkty', 'Same X', '10', '9', 'M', 'Strzały (Suma)']
