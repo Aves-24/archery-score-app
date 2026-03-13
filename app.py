@@ -11,7 +11,7 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Wpisz tu prawdziwy link do swojej apki!
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Zmień na swój link, jeśli jeszcze tego nie zrobiłeś!
 
 # --- PLIKI ZAPISU ---
 AUTOSAVE_FILE = "autosave.json"
@@ -114,7 +114,7 @@ def wyloguj():
     save_settings()
     st.rerun()
 
-# --- NOWE: FUNKCJE BAZY UŻYTKOWNIKÓW (REJESTRACJA W ARKUSZU "Konta") ---
+# --- NOWE: FUNKCJE BAZY UŻYTKOWNIKÓW ---
 @st.cache_data(ttl=30)
 def pobierz_uzytkownikow():
     try:
@@ -126,13 +126,13 @@ def pobierz_uzytkownikow():
         try:
             ws = sh.worksheet("Konta")
         except:
-            # Jeśli zakładka "Konta" nie istnieje, robot sam ją stworzy!
             ws = sh.add_worksheet(title="Konta", rows="100", cols="2")
             ws.append_row(["Zawodnik", "PIN"])
             return {}
             
         zapisy = ws.get_all_records()
-        return {str(r["Zawodnik"]): str(r["PIN"]) for r in zapisy}
+        # Wyciągamy PIN jako czysty tekst i usuwamy ewentualny apostrof bezpieczeństwa
+        return {str(r["Zawodnik"]).strip(): str(r["PIN"]).strip().lstrip("'") for r in zapisy}
     except Exception as e:
         print(f"Błąd pobierania kont: {e}")
         return {}
@@ -144,8 +144,9 @@ def dodaj_uzytkownika(nazwa, pin):
         gc = gspread.service_account_from_dict(creds_dict)
         sh = gc.open(NAZWA_ARKUSZA)
         ws = sh.worksheet("Konta")
-        ws.append_row([nazwa, str(pin)])
-        st.cache_data.clear() # Czyści pamięć, żeby nowy gracz od razu pojawił się na liście
+        # WAŻNE: Dodajemy znak apostrofu ('), żeby Google wymusiło format tekstu i nie obcinało zer!
+        ws.append_row([nazwa, f"'{pin}"])
+        st.cache_data.clear() 
         return True
     except:
         return False
@@ -163,18 +164,25 @@ if not st.session_state.zalogowany_zawodnik:
     tab_log, tab_rej = st.tabs(["🔐 Zaloguj się", "📝 Stwórz konto"])
     
     with tab_log:
-        if not konta:
-            st.info("Brak zarejestrowanych zawodników. Przejdź do zakładki obok, aby założyć pierwszy profil!")
-        else:
-            wybrany_zawodnik = st.selectbox("Wybierz swoje imię:", list(konta.keys()))
-            podany_pin = st.text_input("Podaj 4-cyfrowy PIN:", type="password", key="login_pin")
-            
-            st.write("")
-            if st.button("Wejdź na strzelnicę", type="primary", use_container_width=True):
-                if konta.get(wybrany_zawodnik) == podany_pin:
-                    st.session_state.zalogowany_zawodnik = wybrany_zawodnik
+        st.write("Wpisz swoje dane, aby wejść na tor.")
+        # ZMIANA: Zwykłe pole tekstowe zamiast rozwijanej listy wszystkich zawodników!
+        podana_nazwa = st.text_input("Twoje Imię / Pseudonim:", key="log_nazwa")
+        podany_pin = st.text_input("Podaj 4-cyfrowy PIN:", type="password", key="log_pin")
+        
+        st.write("")
+        if st.button("Wejdź na strzelnicę", type="primary", use_container_width=True):
+            czysta_nazwa = podana_nazwa.strip()
+            if not czysta_nazwa:
+                st.warning("Wpisz swoje imię!")
+            elif czysta_nazwa not in konta:
+                st.error("❌ Nie znaleziono takiego zawodnika! Sprawdź literówki.")
+            else:
+                zapisany_pin = konta[czysta_nazwa]
+                # ZABEZPIECZENIE: Zwraca obcięte przez Google zera (np. zamienia "0" na "0000")
+                if zapisany_pin == podany_pin or zapisany_pin.zfill(len(podany_pin)) == podany_pin:
+                    st.session_state.zalogowany_zawodnik = czysta_nazwa
                     save_settings() 
-                    st.success(f"Witaj, {wybrany_zawodnik}!")
+                    st.success(f"Witaj, {czysta_nazwa}!")
                     time.sleep(1)
                     st.rerun()
                 else:
@@ -182,25 +190,26 @@ if not st.session_state.zalogowany_zawodnik:
                     
     with tab_rej:
         st.write("Podaj swoje dane, aby stworzyć własny, prywatny profil wyników.")
-        nowy_zawodnik = st.text_input("Twoje Imię / Pseudonim:")
+        nowy_zawodnik = st.text_input("Twoje Imię / Pseudonim:", key="rej_nazwa")
         nowy_pin = st.text_input("Wymyśl 4-cyfrowy PIN:", type="password", key="rej_pin")
         
         st.write("")
         if st.button("Stwórz konto", type="primary", use_container_width=True):
-            if not nowy_zawodnik.strip():
+            czysta_nowa_nazwa = nowy_zawodnik.strip()
+            if not czysta_nowa_nazwa:
                 st.warning("Imię nie może być puste!")
-            elif nowy_zawodnik.strip() in konta:
-                st.warning("Taki zawodnik już istnieje! Użyj innego imienia (np. dodaj pierwszą literę nazwiska).")
+            elif czysta_nowa_nazwa in konta:
+                st.warning("Taki zawodnik już istnieje! Użyj innego imienia.")
             elif len(nowy_pin) < 4:
                 st.warning("PIN musi mieć co najmniej 4 znaki!")
             else:
-                sukces = dodaj_uzytkownika(nowy_zawodnik.strip(), nowy_pin)
+                sukces = dodaj_uzytkownika(czysta_nowa_nazwa, nowy_pin)
                 if sukces:
-                    st.success("✅ Konto założone pomyślnie! Zaloguj się w zakładce obok.")
+                    st.success("✅ Konto założone pomyślnie! Przejdź do logowania.")
                     time.sleep(2)
                     st.rerun()
                 else:
-                    st.error("❌ Błąd przy zakładaniu konta. Połączenie z bazą nieudane.")
+                    st.error("❌ Błąd przy zakładaniu konta.")
     st.stop() 
 
 # --- POBIERANIE DANYCH Z GOOGLE ---
