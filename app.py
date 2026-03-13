@@ -11,10 +11,10 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- PAMIĘTAJ O SWOIM LINKU!
+ADRES_APLIKACJI = "https://sft-schiesszettel.streamlit.app/"
 
 # TARCZA ANTY-BOTOWA! 
-KOD_KLUBU = "SFT" # <-- TWÓJ NOWY KOD DOSTĘPU
+KOD_KLUBU = "SFT"
 
 # --- DYSTANSE ---
 dystanse_lista = ["18m", "20m", "30m", "40m", "50m", "60m", "70m"]
@@ -158,7 +158,7 @@ def zmiana_jezyka():
     st.session_state.lang = st.session_state.lang_sel
     save_user_settings()
 
-# --- FUNKCJE BAZY UŻYTKOWNIKÓW I PROFILU SPRZĘTU ---
+# --- FUNKCJE BAZY UŻYTKOWNIKÓW I PROFILU SPRZĘTU (Z SYSTEMEM ŚLEDCZYM) ---
 @st.cache_data(ttl=30)
 def pobierz_uzytkownikow():
     try:
@@ -173,7 +173,9 @@ def pobierz_uzytkownikow():
             return {}
         zapisy = ws.get_all_records()
         return {str(r["Zawodnik"]).strip(): str(r["PIN"]).strip().lstrip("'") for r in zapisy}
-    except: return {}
+    except Exception as e:
+        st.error(f"🕵️‍♂️ BŁĄD POBIERANIA KONT: {e}")
+        return {}
 
 def dodaj_uzytkownika(nazwa, pin):
     try:
@@ -185,7 +187,9 @@ def dodaj_uzytkownika(nazwa, pin):
         ws.append_row([nazwa, f"'{pin}"])
         st.cache_data.clear() 
         return True
-    except: return False
+    except Exception as e:
+        st.error(f"🕵️‍♂️ BŁĄD DODAWANIA KONTA: {e}")
+        return False
 
 def pobierz_profil_sprzetu(zawodnik):
     try:
@@ -202,7 +206,9 @@ def pobierz_profil_sprzetu(zawodnik):
         if not df_zawodnik.empty:
             return df_zawodnik.iloc[-1].to_dict()
         return None
-    except: return None
+    except Exception as e:
+        st.error(f"🕵️‍♂️ BŁĄD POBIERANIA SPRZĘTU: {e}")
+        return None
 
 def zapisz_profil_sprzetu(zawodnik, dane):
     try:
@@ -225,6 +231,7 @@ def zapisz_profil_sprzetu(zawodnik, dane):
         ws.append_row(wiersz)
         return True
     except Exception as e:
+        st.error(f"🕵️‍♂️ BŁĄD ZAPISU SPRZĘTU: {e}")
         return False
 
 # --- OSOBISTY SYSTEM AUTO-SAVE ---
@@ -327,7 +334,6 @@ if not st.session_state.zalogowany_zawodnik:
         nowy_zawodnik = st.text_input("Twoje Imię / Pseudonim:", key="rej_nazwa")
         nowy_pin = st.text_input("Wymyśl 4-cyfrowy PIN:", type="password", key="rej_pin")
         
-        # OTO ON! POLE NA KOD KLUBU WIDOCZNE DLA KAŻDEGO
         podany_kod_klubu = st.text_input("Tajny Kod Klubu (zapytaj trenera/admina):", type="password", key="rej_kod")
         
         st.write("")
@@ -336,12 +342,9 @@ if not st.session_state.zalogowany_zawodnik:
             
             if podany_kod_klubu != KOD_KLUBU:
                 st.error("❌ Błędny Kod Klubu! Ochrona przed obcymi botami aktywna.")
-            elif not czysta_nowa_nazwa: 
-                st.warning("Imię nie może być puste!")
-            elif czysta_nowa_nazwa in konta: 
-                st.warning("Taki zawodnik już istnieje!")
-            elif len(nowy_pin) < 4: 
-                st.warning("PIN musi mieć co najmniej 4 znaki!")
+            elif not czysta_nowa_nazwa: st.warning("Imię nie może być puste!")
+            elif czysta_nowa_nazwa in konta: st.warning("Taki zawodnik już istnieje!")
+            elif len(nowy_pin) < 4: st.warning("PIN musi mieć co najmniej 4 znaki!")
             else:
                 if dodaj_uzytkownika(czysta_nowa_nazwa, nowy_pin):
                     st.success("✅ Konto założone pomyślnie! Przejdź do logowania.")
@@ -371,7 +374,9 @@ def pobierz_dane_z_arkusza(zawodnik):
             if "Typ" in df.columns: df["Typ"] = df["Typ"].astype(str).str.strip()
             return df
         return pd.DataFrame()
-    except: return pd.DataFrame()
+    except Exception as e:
+        st.error(f"🕵️‍♂️ BŁĄD POBIERANIA STATYSTYK: {e}")
+        return pd.DataFrame()
 
 def zapisz_do_arkusza(dane_treningu, statystyki):
     try:
@@ -399,7 +404,9 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
         worksheet.append_row(wiersz)
         st.cache_data.clear()
         return True
-    except: return False
+    except Exception as e:
+        st.error(f"🕵️‍♂️ BŁĄD ZAPISU WYNIKU: {e}")
+        return False
 
 if 'started' not in st.session_state:
     st.session_state.started = False
