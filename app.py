@@ -529,25 +529,27 @@ with tab_staty:
                 x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
             )
             
-            # 2. TWORZENIE SŁUPKÓW (Oś Y i kolory)
+            # 2. TWORZENIE SŁUPKÓW
             slupki = baza.mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
                 y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz),
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
                 tooltip=['Data', 'Czas', 'Nazwa', 'Punkty', 'Same X', '10', '9', 'M', 'Strzały (Suma)']
             )
             
-            # 3. TWORZENIE TEKSTÓW (Wartości bezpośrednio NAD słupkami)
+            # 3. TWORZENIE TEKSTÓW (Wymuszony rozmiar i wyłączone obcinanie dla telefonów!)
             teksty = baza.mark_text(
                 align='center',
                 baseline='bottom',
-                dy=-5, # Przemieszcza napis 5 pikseli nad szczyt słupka
-                fontWeight='bold'
+                dy=-5, 
+                fontWeight='bold',
+                fontSize=12,   # Optymalny rozmiar na telefon
+                clip=False     # NIE ZNIKAJ na krawędzi ekranu!
             ).encode(
                 y=alt.Y(f'{kolumna_y}:Q'),
-                text=alt.Text(f'{kolumna_y}:Q') # To pobiera i wpisuje samą cyfrę!
+                text=alt.Text(f'{kolumna_y}:Q') 
             )
             
-            # 4. SKŁADANIE WYKRESU (Słupki + Tekst nakładają się na siebie)
+            # 4. SKŁADANIE WYKRESU
             wykres = (slupki + teksty).properties(height=350)
             
             st.altair_chart(wykres, use_container_width=True)
