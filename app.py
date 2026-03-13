@@ -3,7 +3,7 @@ from datetime import date
 
 st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
-# --- LISTA DYSTANSÓW (CZYSTA I KRÓTKA) ---
+# --- LISTA DYSTANSÓW ---
 dystanse_lista = ["18m", "30m", "70m"]
 
 # --- INICJALIZACJA ZMIENNYCH ---
@@ -12,16 +12,16 @@ if 'started' not in st.session_state:
 if 'scores' not in st.session_state:
     st.session_state.scores = []
 
-# Domyślne wartości celownika wpisane "NA TWARDO"
+# Domyślne wartości celownika
 if f"dz_{dystanse_lista[0]}" not in st.session_state:
-    st.session_state[f"dz_{dystanse_lista[0]}"] = "11"  # 18m Dziurka
-    st.session_state[f"sk_{dystanse_lista[0]}"] = "0.7" # 18m Skala
+    st.session_state[f"dz_{dystanse_lista[0]}"] = "11"  
+    st.session_state[f"sk_{dystanse_lista[0]}"] = "0.7" 
     
-    st.session_state[f"dz_{dystanse_lista[1]}"] = ""    # 30m Dziurka 
-    st.session_state[f"sk_{dystanse_lista[1]}"] = ""    # 30m Skala
+    st.session_state[f"dz_{dystanse_lista[1]}"] = ""    
+    st.session_state[f"sk_{dystanse_lista[1]}"] = ""    
     
-    st.session_state[f"dz_{dystanse_lista[2]}"] = "11"  # 70m Dziurka
-    st.session_state[f"sk_{dystanse_lista[2]}"] = "8"   # 70m Skala
+    st.session_state[f"dz_{dystanse_lista[2]}"] = "11"  
+    st.session_state[f"sk_{dystanse_lista[2]}"] = "8"   
 
 def add_score(val):
     if len(st.session_state.scores) < st.session_state.max_total_arrows:
@@ -64,7 +64,6 @@ if not st.session_state.started:
     st.write("") 
     
     st.write("🎯 **Wybierz dystans:**")
-    # ZAMIANA NA RADIO BUTTONY
     dystans = st.radio("Dystans", dystanse_lista, horizontal=True, label_visibility="collapsed")
 
     arrows_per_end = 6
@@ -93,7 +92,6 @@ if not st.session_state.started:
 
     st.divider()
 
-    # --- ZWINIĘTE USTAWIENIA CELOWNIKA ---
     with st.expander("⚙️ Ustawienia wizjera (Zmieniaj rzadko)", expanded=False):
         c1, c2, c3 = st.columns([2, 1, 1])
         c1.markdown("<span style='font-size:12px; color:gray;'>Dystans</span>", unsafe_allow_html=True)
@@ -108,6 +106,30 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
+    # --- CSS: POWIĘKSZENIE RADIO BUTTONÓW ---
+    st.markdown("""
+    <style>
+        /* Powiększenie odstępów między elementami Radio */
+        div[data-testid="stRadio"] > div {
+            gap: 15px !important;
+            padding: 10px 0 !important;
+        }
+        
+        /* Zwiększenie obszaru klikalnego i czcionki (X, 10, 9...) */
+        div[data-testid="stRadio"] label [data-testid="stMarkdownContainer"] p {
+            font-size: 22px !important;
+            font-weight: 900 !important;
+            padding: 10px 5px !important; /* To robi duży ukryty "guzik" pod palcem */
+        }
+        
+        /* Opcjonalne powiększenie samej fizycznej kropki (zadziała w większości przeglądarek) */
+        div[data-testid="stRadio"] label span:first-of-type {
+            transform: scale(1.4) !important;
+            margin-right: 8px !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
     info = st.session_state.event_info
     scores = st.session_state.scores
     arrows_per_end = info['StrzalWSerii']
