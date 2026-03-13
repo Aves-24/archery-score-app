@@ -11,6 +11,8 @@ if 'started' not in st.session_state:
     st.session_state.started = False
 if 'scores' not in st.session_state:
     st.session_state.scores = []
+if 'extra_arrows' not in st.session_state:
+    st.session_state.extra_arrows = 0 # Nowa zmienna na strzały próbne!
 
 # Domyślne wartości celownika
 if f"dz_{dystanse_lista[0]}" not in st.session_state:
@@ -31,9 +33,15 @@ def undo_score():
     if len(st.session_state.scores) > 0:
         st.session_state.scores.pop()
 
+def add_extra_arrows(val):
+    # Zapobiega spadnięciu poniżej zera przy cofaniu
+    if st.session_state.extra_arrows + val >= 0:
+        st.session_state.extra_arrows += val
+
 def reset():
     st.session_state.started = False
     st.session_state.scores = []
+    st.session_state.extra_arrows = 0 # Czyścimy też próbne strzały
     if 'radio_input' in st.session_state:
         del st.session_state['radio_input']
 
@@ -109,45 +117,15 @@ else:
     # --- CSS: MAKSYMALNA KOMPRESJA I KOLORY DLA RADIO BUTTONÓW ---
     st.markdown("""
     <style>
-        /* Ukrywamy domyślne, ogromne odstępy Streamlita pod modułem Radio */
-        div[data-testid="stRadio"] {
-            margin-bottom: -20px !important;
-        }
+        div[data-testid="stRadio"] { margin-bottom: -20px !important; }
+        div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; justify-content: center !important; }
+        div[role="radiogroup"] label p { font-size: 18px !important; font-weight: 900 !important; padding: 0 !important; }
         
-        /* Zmniejszamy gap (przerwy) między przyciskami do absolutnego minimum */
-        div[role="radiogroup"] {
-            gap: 4px !important;
-            padding: 0 !important;
-            justify-content: center !important;
-        }
-        
-        /* Delikatnie mniejsza czcionka i usunięty ukryty margines */
-        div[role="radiogroup"] label p {
-            font-size: 18px !important;
-            font-weight: 900 !important;
-            padding: 0 !important; 
-        }
-
-        /* Pokolorowanie czcionek (nth-child liczy guziki od lewej do prawej) */
-        
-        /* 1(X), 2(10), 3(9) -> Złoto-Żółty (czytelny na obu tłach) */
-        div[role="radiogroup"] label:nth-child(1) p,
-        div[role="radiogroup"] label:nth-child(2) p,
-        div[role="radiogroup"] label:nth-child(3) p { color: #D4AC0D !important; }
-        
-        /* 4(8), 5(7) -> Czerwony */
-        div[role="radiogroup"] label:nth-child(4) p,
-        div[role="radiogroup"] label:nth-child(5) p { color: #E53935 !important; }
-        
-        /* 6(6), 7(5) -> Niebieski */
-        div[role="radiogroup"] label:nth-child(6) p,
-        div[role="radiogroup"] label:nth-child(7) p { color: #1E88E5 !important; }
-        
-        /* 8(4), 9(3) -> Elegancki Szary (zamiast czarnego) */
-        div[role="radiogroup"] label:nth-child(8) p,
-        div[role="radiogroup"] label:nth-child(9) p { color: #757575 !important; }
-        
-        /* Pozostałe (2, 1, M, ⌫) zostają w domyślnym kolorze dopasowującym się do telefonu */
+        /* Kolory */
+        div[role="radiogroup"] label:nth-child(1) p, div[role="radiogroup"] label:nth-child(2) p, div[role="radiogroup"] label:nth-child(3) p { color: #D4AC0D !important; }
+        div[role="radiogroup"] label:nth-child(4) p, div[role="radiogroup"] label:nth-child(5) p { color: #E53935 !important; }
+        div[role="radiogroup"] label:nth-child(6) p, div[role="radiogroup"] label:nth-child(7) p { color: #1E88E5 !important; }
+        div[role="radiogroup"] label:nth-child(8) p, div[role="radiogroup"] label:nth-child(9) p { color: #757575 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -166,7 +144,6 @@ else:
         
     st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Data']} | {info['Dystans']}{celownik_tekst}</div>", unsafe_allow_html=True)
 
-    # USUNIĘTO TEKST I PODZIELNIK - sama czysta funkcjonalność wprowadzania
     st.radio(
         "Punkty",
         options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], 
@@ -177,7 +154,6 @@ else:
         label_visibility="collapsed"
     )
 
-    # Minimalny odstęp wymuszony w HTML dla oddzielenia tarczy
     st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
     def get_color_style(val):
@@ -191,9 +167,9 @@ else:
 
     def render_round_html(round_num, round_scores, cumulative_start):
         r_points = sum(get_num(s) for s in round_scores)
-        r_hits = len([s for s in round_scores if s != "M"])
-        r_10s = round_scores.count("10") + round_scores.count("X") 
         r_xs = round_scores.count("X")
+        r_10s = round_scores.count("10")
+        r_9s = round_scores.count("9")
         r_max_current = len(round_scores) * 10
         r_percent = (r_points / r_max_current * 100) if r_max_current > 0 else 0
         
@@ -241,7 +217,13 @@ else:
             
         html += f"<tr style='border-top: 2px solid black; background-color: #f9f9f9; color: #000;'><td colspan='{arrows_per_end + 1}' style='text-align: right; padding: 5px; font-weight: bold; border: 1px solid black; border-right: 2px solid black;'>Summe:</td><td colspan='2' style='border: 2px solid black; font-weight: bold; font-size: 16px; padding: 5px;'>{r_points}</td></tr></table>"
         
-        html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none; color: #000;'><tr><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Treffer:<br><b style='font-size: 14px;'>{r_hits}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td><td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; text-align: left;'>Kontr.<br>&nbsp;</td></tr></table></div>"
+        # --- ZAKTUALIZOWANA STOPKA (Xer, 10er, 9er, Skuteczność) ---
+        html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none; color: #000;'><tr>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>9er:<br><b style='font-size: 14px;'>{r_9s}</b></td>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; background-color: #f0f8ff;'>Skuteczność:<br><b style='font-size: 14px;'>{r_percent:.1f}%</b></td>"
+        html += f"</tr></table></div>"
         
         return html, cumul_total
 
@@ -263,16 +245,21 @@ else:
     # --- STATYSTYKI KOŃCOWE ---
     total_points = sum(get_num(s) for s in scores)
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
-    count_x = scores.count("X")
-    count_10 = scores.count("10")
+    total_arrows_shot = len(scores) + st.session_state.extra_arrows
     
     st.markdown("### 📊 Wynik Całkowity (Mecz)")
     col_s1, col_s2, col_s3 = st.columns(3)
     col_s1.metric("Punkty", f"{total_points} / {max_total_score}")
-    col_s2.metric("Strzały", f"{len(scores)} / {st.session_state.max_total_arrows}")
+    col_s2.metric("Licznik strzał", f"{total_arrows_shot}")
     col_s3.metric("Skuteczność", f"{percent:.1f}%")
     
-    st.write(f"**Suma 10+X:** {count_10 + count_x} &nbsp;&nbsp;|&nbsp;&nbsp; **Same X:** {count_x}")
+    # Przyciski do strzał próbnych
+    st.markdown("<span style='font-size:14px; color:gray;'>Strzały próbne / rozgrzewka:</span>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    c1.button("➕ 6 strzał", on_click=add_extra_arrows, args=(6,), use_container_width=True)
+    c2.button("➕ 1 strzała", on_click=add_extra_arrows, args=(1,), use_container_width=True)
+    c3.button("➖ Cofnij", on_click=add_extra_arrows, args=(-1,), use_container_width=True)
+
     st.write("")
 
     if st.button("Zakończ strzelanie (Wkrótce Google Sheets)", type="primary", use_container_width=True):
