@@ -524,29 +524,31 @@ with tab_staty:
             zakres_kolorow = ['#2E8B57', '#1E88E5', '#2E8B57', '#1E88E5']
             kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
             
-            # INTELIGENTNA SKALA Y (Rozwiązuje ucięte liczby!)
+            # POPRAWKA 1: nice=False wymusza koniec skali DOKŁADNIE na wyznaczonej wartości!
             max_wartosc = df_filtrowane[kolumna_y].max()
             if kolumna_y == "Punkty":
-                skala_y = alt.Scale(domain=(0, 720)) # Sztywna skala do 720 dla punktów
+                skala_y = alt.Scale(domain=[0, 720], nice=False) # Zero litości, max to 720!
             else:
-                skala_y = alt.Scale(domain=(0, max_wartosc * 1.25 if max_wartosc > 0 else 10)) # +25% wolnego miejsca od góry dla innych metryk
+                skala_y = alt.Scale(domain=[0, max_wartosc * 1.25 if max_wartosc > 0 else 10], nice=False)
             
             baza = alt.Chart(df_filtrowane).encode(
                 x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
             )
             
             slupki = baza.mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-                y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz, scale=skala_y), # Użycie naszej nowej skali
+                y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz, scale=skala_y), 
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
                 tooltip=['Data', 'Czas', 'Nazwa', 'Punkty', 'Same X', '10', '9', 'M', 'Strzały (Suma)']
             )
             
+            # POPRAWKA 2: clip=False DODANE! Telefon już nie odetnie cyfr.
             teksty = baza.mark_text(
                 align='center',
                 baseline='bottom',
                 dy=-5, 
                 fontWeight='bold',
-                fontSize=13 # Optymalny rozmiar
+                fontSize=12,
+                clip=False # <- To jest ta magiczna komenda!
             ).encode(
                 y=alt.Y(f'{kolumna_y}:Q'),
                 text=alt.Text(f'{kolumna_y}:Q') 
