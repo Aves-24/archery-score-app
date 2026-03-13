@@ -11,7 +11,7 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- PAMIĘTAJ O SWOIM LINKU!
+ADRES_APLIKACJI = "https://archery-score-app-7z8m6rakrfwe2nt59bpzzs.streamlit.app/" # <-- PAMIĘTAJ O SWOIM LINKU!
 
 # TARCZA ANTY-BOTOWA! 
 KOD_KLUBU = "LUK123" # <-- ZMIEŃ NA WŁASNE HASŁO KLUBU!
