@@ -106,27 +106,48 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # --- CSS: POWIĘKSZENIE RADIO BUTTONÓW ---
+    # --- CSS: MAKSYMALNA KOMPRESJA I KOLORY DLA RADIO BUTTONÓW ---
     st.markdown("""
     <style>
-        /* Powiększenie odstępów między elementami Radio */
-        div[data-testid="stRadio"] > div {
-            gap: 15px !important;
-            padding: 10px 0 !important;
+        /* Ukrywamy domyślne, ogromne odstępy Streamlita pod modułem Radio */
+        div[data-testid="stRadio"] {
+            margin-bottom: -20px !important;
         }
         
-        /* Zwiększenie obszaru klikalnego i czcionki (X, 10, 9...) */
-        div[data-testid="stRadio"] label [data-testid="stMarkdownContainer"] p {
-            font-size: 22px !important;
+        /* Zmniejszamy gap (przerwy) między przyciskami do absolutnego minimum */
+        div[role="radiogroup"] {
+            gap: 4px !important;
+            padding: 0 !important;
+            justify-content: center !important;
+        }
+        
+        /* Delikatnie mniejsza czcionka i usunięty ukryty margines */
+        div[role="radiogroup"] label p {
+            font-size: 18px !important;
             font-weight: 900 !important;
-            padding: 10px 5px !important; /* To robi duży ukryty "guzik" pod palcem */
+            padding: 0 !important; 
         }
+
+        /* Pokolorowanie czcionek (nth-child liczy guziki od lewej do prawej) */
         
-        /* Opcjonalne powiększenie samej fizycznej kropki (zadziała w większości przeglądarek) */
-        div[data-testid="stRadio"] label span:first-of-type {
-            transform: scale(1.4) !important;
-            margin-right: 8px !important;
-        }
+        /* 1(X), 2(10), 3(9) -> Złoto-Żółty (czytelny na obu tłach) */
+        div[role="radiogroup"] label:nth-child(1) p,
+        div[role="radiogroup"] label:nth-child(2) p,
+        div[role="radiogroup"] label:nth-child(3) p { color: #D4AC0D !important; }
+        
+        /* 4(8), 5(7) -> Czerwony */
+        div[role="radiogroup"] label:nth-child(4) p,
+        div[role="radiogroup"] label:nth-child(5) p { color: #E53935 !important; }
+        
+        /* 6(6), 7(5) -> Niebieski */
+        div[role="radiogroup"] label:nth-child(6) p,
+        div[role="radiogroup"] label:nth-child(7) p { color: #1E88E5 !important; }
+        
+        /* 8(4), 9(3) -> Elegancki Szary (zamiast czarnego) */
+        div[role="radiogroup"] label:nth-child(8) p,
+        div[role="radiogroup"] label:nth-child(9) p { color: #757575 !important; }
+        
+        /* Pozostałe (2, 1, M, ⌫) zostają w domyślnym kolorze dopasowującym się do telefonu */
     </style>
     """, unsafe_allow_html=True)
 
@@ -143,10 +164,9 @@ else:
     if info['CelownikDziurka'] != "-" or info['CelownikSkala'] != "-":
         celownik_tekst = f" | ⚙️ Dz: {info['CelownikDziurka']} Sk: {info['CelownikSkala']}"
         
-    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 10px;'>{tytul} | {info['Data']} | {info['Dystans']}{celownik_tekst}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Data']} | {info['Dystans']}{celownik_tekst}</div>", unsafe_allow_html=True)
 
-    st.write("Wybierz trafienie:")
-    
+    # USUNIĘTO TEKST I PODZIELNIK - sama czysta funkcjonalność wprowadzania
     st.radio(
         "Punkty",
         options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], 
@@ -157,7 +177,8 @@ else:
         label_visibility="collapsed"
     )
 
-    st.divider()
+    # Minimalny odstęp wymuszony w HTML dla oddzielenia tarczy
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
