@@ -11,7 +11,7 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Pamiętaj, zmień to na swój link!
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Pamiętaj o swoim linku!
 
 # --- PLIKI ZAPISU ---
 AUTOSAVE_FILE = "autosave.json"
@@ -205,7 +205,6 @@ def zapisz_profil_sprzetu(zawodnik, dane):
         sh = gc.open(NAZWA_ARKUSZA)
         try: ws = sh.worksheet("Profil_Sprzetu")
         except:
-            # Lista zaktualizowana bez Dziurki
             ws = sh.add_worksheet(title="Profil_Sprzetu", rows="100", cols="20")
             naglowki = ["Data", "Zawodnik", "Zuggewicht", "Standhoehe", "Tiller", "Nockpunkt", "Pfeil_Modell", "Pfeil_Spine", "Pfeil_Laenge", "Pfeil_Spitze"]
             for d in dystanse_lista: naglowki.append(f"sk_{d}")
@@ -338,7 +337,7 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
             dane_treningu["Data"], now.strftime("%H:%M:%S"), dane_treningu["Typ"], dane_treningu["Nazwa"],
             dane_treningu["Dystans"], statystyki["Punkty"], statystyki["Max"], f"{statystyki['Skuteczność']:.1f}%",
             statystyki["Strzały"], statystyki["10_i_X"], statystyki["X"],
-            "-", # Wypełniacz w miejsce usuniętej 'Dziurki', żeby nie popsuć ułożenia kolumn starym arkuszom!
+            "-", # Wypełniacz w miejsce usuniętej 'Dziurki' dla starych arkuszy
             dane_treningu["CelownikSkala"],
             statystyki["10"], statystyki["9"], statystyki["M"]
         ]
@@ -752,18 +751,21 @@ with tab_staty:
             wykres = (slupki + teksty).properties(width=szerokosc_wykresu, height=350)
             st.altair_chart(wykres, use_container_width=False)
 
-            # --- POBIERANIE STATYSTYK Z TŁUMACZENIEM (CSV) ---
+            # --- NOWOŚĆ: CZYSZCZENIE PLIKU CSV I TŁUMACZENIE ---
             st.write("")
             df_export = df_filtrowane.copy()
-            if "Wizjer Dziurka" in df_export.columns:
-                df_export.drop(columns=["Wizjer Dziurka"], inplace=True)
+            
+            # Usuwamy niepotrzebne i techniczne kolumny, o które prosiłeś!
+            kolumny_do_usuniecia = ["Wizjer Dziurka", "Wizjer Skala", "Zawodnik", "Sesja", "Wydarzenie"]
+            df_export.drop(columns=[k for k in kolumny_do_usuniecia if k in df_export.columns], inplace=True)
                 
+            # Tłumaczenie na czysty niemiecki dla wariantu DE
             if lang == "DE":
                 df_export.rename(columns={
                     "Data": "Datum", "Czas": "Uhrzeit", "Typ": "Ereignis",
                     "Nazwa": "Name", "Dystans": "Distanz", "Punkty": "Punkte",
                     "Skuteczność %": "Trefferquote %", "Strzały (Suma)": "Pfeilanzahl",
-                    "Same X": "Nur X", "Wizjer Skala": "Visier Skala"
+                    "Same X": "Nur X"
                 }, inplace=True)
                 
             csv_data = df_export.to_csv(index=False).encode('utf-8')
