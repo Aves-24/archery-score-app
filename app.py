@@ -11,9 +11,9 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Zmień na swój link, jeśli jeszcze tego nie zrobiłeś!
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Pamiętaj o wpisaniu swojego linku!
 
-# --- PLIKI ZAPISU ---
+# --- PLIKI ZAPISU W LOKALNEJ PAMIĘCI (CACHE) ---
 AUTOSAVE_FILE = "autosave.json"
 SETTINGS_FILE = "settings.json"
 
@@ -114,7 +114,7 @@ def wyloguj():
     save_settings()
     st.rerun()
 
-# --- NOWE: FUNKCJE BAZY UŻYTKOWNIKÓW ---
+# --- FUNKCJE BAZY UŻYTKOWNIKÓW I USTAWIEŃ WIZJERA ---
 @st.cache_data(ttl=30)
 def pobierz_uzytkownikow():
     try:
@@ -131,10 +131,8 @@ def pobierz_uzytkownikow():
             return {}
             
         zapisy = ws.get_all_records()
-        # Wyciągamy PIN jako czysty tekst i usuwamy ewentualny apostrof bezpieczeństwa
         return {str(r["Zawodnik"]).strip(): str(r["PIN"]).strip().lstrip("'") for r in zapisy}
-    except Exception as e:
-        print(f"Błąd pobierania kont: {e}")
+    except:
         return {}
 
 def dodaj_uzytkownika(nazwa, pin):
@@ -144,11 +142,55 @@ def dodaj_uzytkownika(nazwa, pin):
         gc = gspread.service_account_from_dict(creds_dict)
         sh = gc.open(NAZWA_ARKUSZA)
         ws = sh.worksheet("Konta")
-        # WAŻNE: Dodajemy znak apostrofu ('), żeby Google wymusiło format tekstu i nie obcinało zer!
         ws.append_row([nazwa, f"'{pin}"])
         st.cache_data.clear() 
         return True
     except:
+        return False
+
+def pobierz_ustawienia_wizjera(zawodnik):
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        creds_dict = json.loads(klucz_tekst)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open(NAZWA_ARKUSZA)
+        
+        try:
+            ws = sh.worksheet("Ustawienia_Wizjera")
+        except:
+            return None # Zakładka nie istnieje
+            
+        zapisy = ws.get_all_records()
+        if not zapisy: return None
+        
+        df = pd.DataFrame(zapisy)
+        df_zawodnik = df[df["Zawodnik"] == zawodnik]
+        
+        if not df_zawodnik.empty:
+            # Zwraca OSTATNI (najnowszy) wiersz jako słownik
+            return df_zawodnik.iloc[-1].to_dict()
+        return None
+    except:
+        return None
+
+def zapisz_ustawienia_wizjera_chmura(zawodnik, dz18, sk18, dz30, sk30, dz70, sk70):
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        creds_dict = json.loads(klucz_tekst)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open(NAZWA_ARKUSZA)
+        
+        try:
+            ws = sh.worksheet("Ustawienia_Wizjera")
+        except:
+            ws = sh.add_worksheet(title="Ustawienia_Wizjera", rows="100", cols="8")
+            ws.append_row(["Data", "Zawodnik", "dz_18m", "sk_18m", "dz_30m", "sk_30m", "dz_70m", "sk_70m"])
+            
+        now = datetime.now().strftime("%d.%m.%Y %H:%M")
+        ws.append_row([now, zawodnik, dz18, sk18, dz30, sk30, dz70, sk70])
+        return True
+    except Exception as e:
+        print(e)
         return False
 
 # --- EKRAN LOGOWANIA / REJESTRACJI ---
@@ -165,12 +207,12 @@ if not st.session_state.zalogowany_zawodnik:
     
     with tab_log:
         st.write("Wpisz swoje dane, aby wejść na tor.")
-        # ZMIANA: Zwykłe pole tekstowe zamiast rozwijanej listy wszystkich zawodników!
         podana_nazwa = st.text_input("Twoje Imię / Pseudonim:", key="log_nazwa")
         podany_pin = st.text_input("Podaj 4-cyfrowy PIN:", type="password", key="log_pin")
         
         st.write("")
-        if st.button("Wejdź na strzelnicę", type="primary", use_container_width=True):
+        col_log1, col_log2 = st.columns([2, 1])
+        if col_log1.button("Wejdź na strzelnicę", type="primary", use_container_width=True):
             czysta_nazwa = podana_nazwa.strip()
             if not czysta_nazwa:
                 st.warning("Wpisz swoje imię!")
@@ -178,15 +220,29 @@ if not st.session_state.zalogowany_zawodnik:
                 st.error("❌ Nie znaleziono takiego zawodnika! Sprawdź literówki.")
             else:
                 zapisany_pin = konta[czysta_nazwa]
-                # ZABEZPIECZENIE: Zwraca obcięte przez Google zera (np. zamienia "0" na "0000")
                 if zapisany_pin == podany_pin or zapisany_pin.zfill(len(podany_pin)) == podany_pin:
+                    # LOGOWANIE SUKCES! Pobieramy z chmury ustawienia wizjera!
                     st.session_state.zalogowany_zawodnik = czysta_nazwa
                     save_settings() 
+                    
+                    zapisane_wizjery = pobierz_ustawienia_wizjera(czysta_nazwa)
+                    if zapisane_wizjery:
+                        st.session_state["dz_18m"] = str(zapisane_wizjery.get("dz_18m", "11"))
+                        st.session_state["sk_18m"] = str(zapisane_wizjery.get("sk_18m", "0.7"))
+                        st.session_state["dz_30m"] = str(zapisane_wizjery.get("dz_30m", ""))
+                        st.session_state["sk_30m"] = str(zapisane_wizjery.get("sk_30m", ""))
+                        st.session_state["dz_70m"] = str(zapisane_wizjery.get("dz_70m", "11"))
+                        st.session_state["sk_70m"] = str(zapisane_wizjery.get("sk_70m", "8"))
+                        
                     st.success(f"Witaj, {czysta_nazwa}!")
                     time.sleep(1)
                     st.rerun()
                 else:
                     st.error("❌ Błędny PIN! Spróbuj ponownie.")
+                    
+        # PRZYCISK RATUNKOWY
+        if col_log2.button("Zapomniałem PIN-u 🆘", use_container_width=True):
+            st.info("Skontaktuj się z głównym administratorem aplikacji (osobą, która dała Ci link). Administrator posiada tabelę 'Konta' w swoim Arkuszu Google i w 5 sekund odczyta Ci Twój PIN!")
                     
     with tab_rej:
         st.write("Podaj swoje dane, aby stworzyć własny, prywatny profil wyników.")
@@ -245,7 +301,6 @@ def pobierz_dane_z_arkusza(zawodnik):
             return df
         return pd.DataFrame()
     except Exception as e:
-        print(f"Błąd odczytu: {e}")
         return pd.DataFrame()
 
 # --- ZAPIS DO GOOGLE SHEETS ---
@@ -445,6 +500,20 @@ with tab_karta:
                 c1.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{d}</div>", unsafe_allow_html=True)
                 st.text_input(f"Dz {d}", key=f"dz_{d}", label_visibility="collapsed")
                 st.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
+            
+            # NOWY PRZYCISK: Zapisywanie ustawień w chmurze
+            st.write("")
+            if st.button("💾 Zapisz ustawienia wizjera w chmurze", use_container_width=True):
+                sukces = zapisz_ustawienia_wizjera_chmura(
+                    st.session_state.zalogowany_zawodnik,
+                    st.session_state["dz_18m"], st.session_state["sk_18m"],
+                    st.session_state["dz_30m"], st.session_state["sk_30m"],
+                    st.session_state["dz_70m"], st.session_state["sk_70m"]
+                )
+                if sukces:
+                    st.success("✅ Zapisano! Będą z Tobą przy każdym logowaniu.")
+                else:
+                    st.error("❌ Błąd połączenia z Arkuszem.")
             
             st.write("")
             if st.button("🚪 Wyloguj / Logout", use_container_width=True):
