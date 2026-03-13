@@ -11,14 +11,10 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Pamiętaj o swoim linku!
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- PAMIĘTAJ O SWOIM LINKU!
 
-# TARCZA ANTY-BOTOWA! Tylko osoby znające ten kod mogą założyć nowe konto.
-KOD_KLUBU = "SFT" # <-- ZMIEŃ NA WŁASNE HASŁO KLUBU!
-
-# --- PLIKI ZAPISU ---
-AUTOSAVE_FILE = "autosave.json"
-SETTINGS_FILE = "settings.json"
+# TARCZA ANTY-BOTOWA! 
+KOD_KLUBU = "LUK123" # <-- ZMIEŃ NA WŁASNE HASŁO KLUBU!
 
 # --- DYSTANSE ---
 dystanse_lista = ["18m", "20m", "30m", "40m", "50m", "60m", "70m"]
@@ -54,7 +50,6 @@ T = {
         "stat_metric": "Pokaż na wykresie:",
         "visier": "🔭 Celownik (Visier)",
         "choose_dist_settings": "Zaznacz widoczne dystanse na torze:",
-        "scale": "Skala (Fein)",
         "bow_setup": "🏹 Łuk (Bogen-Setup)",
         "draw_weight": "Siła (Zuggewicht) [lbs]",
         "brace_height": "Wys. cięciwy (Standhöhe) [cm/in]",
@@ -97,7 +92,6 @@ T = {
         "stat_metric": "Zeige im Diagramm:",
         "visier": "🔭 Visier",
         "choose_dist_settings": "Sichtbare Distanzen markieren:",
-        "scale": "Feineinstellung",
         "bow_setup": "🏹 Bogen-Setup",
         "draw_weight": "Zuggewicht [lbs]",
         "brace_height": "Standhöhe [cm/in]",
@@ -113,46 +107,54 @@ T = {
     }
 }
 
-# --- FUNKCJE USTAWIEŃ I SESJI ---
-def load_settings():
-    lang = "PL"
-    zawodnik = None
-    aktywne_dystanse = ["18m", "30m", "70m"] 
-    if os.path.exists(SETTINGS_FILE):
-        try:
-            with open(SETTINGS_FILE, "r") as f:
-                data = json.load(f)
-                lang = data.get("lang", "PL")
-                zawodnik = data.get("zalogowany_zawodnik")
-                aktywne_dystanse = data.get("aktywne_dystanse", ["18m", "30m", "70m"])
-        except: pass
-    return lang, zawodnik, aktywne_dystanse
-
-def save_settings():
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump({
-            "lang": st.session_state.lang, 
-            "zalogowany_zawodnik": st.session_state.zalogowany_zawodnik,
-            "aktywne_dystanse": st.session_state.aktywne_dystanse
-        }, f)
-
-start_lang, start_zawodnik, start_dystanse = load_settings()
-if 'lang' not in st.session_state: st.session_state.lang = start_lang
-if 'zalogowany_zawodnik' not in st.session_state: st.session_state.zalogowany_zawodnik = start_zawodnik
-if 'aktywne_dystanse' not in st.session_state: st.session_state.aktywne_dystanse = start_dystanse
+# --- INICJALIZACJA SESJI ---
+if 'lang' not in st.session_state: st.session_state.lang = "PL"
+if 'zalogowany_zawodnik' not in st.session_state: st.session_state.zalogowany_zawodnik = None
+if 'aktywne_dystanse' not in st.session_state: st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
 
 lang = st.session_state.lang
 
+# --- SYSTEM OSOBISTYCH USTAWIEŃ (Rozwiązuje problem mieszania się użytkowników!) ---
+def get_settings_file():
+    return f"settings_{st.session_state.zalogowany_zawodnik}.json"
+
+def get_autosave_file():
+    return f"autosave_{st.session_state.zalogowany_zawodnik}.json"
+
+def save_user_settings():
+    if st.session_state.zalogowany_zawodnik:
+        with open(get_settings_file(), "w") as f:
+            json.dump({"aktywne_dystanse": st.session_state.aktywne_dystanse, "lang": st.session_state.lang}, f)
+
+def load_user_settings(zawodnik):
+    plik = f"settings_{zawodnik}.json"
+    if os.path.exists(plik):
+        try:
+            with open(plik, "r") as f:
+                data = json.load(f)
+                st.session_state.aktywne_dystanse = data.get("aktywne_dystanse", ["18m", "30m", "70m"])
+                st.session_state.lang = data.get("lang", "PL")
+        except:
+            st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
+    else:
+        st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
+
 def wyloguj():
     st.session_state.zalogowany_zawodnik = None
-    save_settings()
+    st.session_state.started = False
+    st.session_state.scores = []
+    st.session_state.extra_arrows = 0
     st.rerun()
 
 def zmiana_dystansow():
     nowe_aktywne = [d for d in dystanse_lista if st.session_state.get(f"chk_{d}", False)]
     if not nowe_aktywne: nowe_aktywne = ["18m"] 
     st.session_state.aktywne_dystanse = nowe_aktywne
-    save_settings()
+    save_user_settings()
+
+def zmiana_jezyka():
+    st.session_state.lang = st.session_state.lang_sel
+    save_user_settings()
 
 # --- FUNKCJE BAZY UŻYTKOWNIKÓW I PROFILU SPRZĘTU ---
 @st.cache_data(ttl=30)
@@ -223,6 +225,39 @@ def zapisz_profil_sprzetu(zawodnik, dane):
     except Exception as e:
         return False
 
+# --- OSOBISTY SYSTEM AUTO-SAVE ---
+def save_backup():
+    if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
+        backup_data = {
+            "started": True, "scores": st.session_state.scores, "extra_arrows": st.session_state.extra_arrows,
+            "event_info": st.session_state.event_info, "max_arrows_per_round": st.session_state.max_arrows_per_round,
+            "max_total_arrows": st.session_state.max_total_arrows
+        }
+        with open(get_autosave_file(), "w") as f: json.dump(backup_data, f)
+
+def load_backup():
+    if not st.session_state.zalogowany_zawodnik: return False
+    plik = get_autosave_file()
+    if os.path.exists(plik):
+        try:
+            with open(plik, "r") as f:
+                data = json.load(f)
+                if data.get("started"):
+                    st.session_state.started = True
+                    st.session_state.scores = data.get("scores", [])
+                    st.session_state.extra_arrows = data.get("extra_arrows", 0)
+                    st.session_state.event_info = data.get("event_info", {})
+                    st.session_state.max_arrows_per_round = data.get("max_arrows_per_round", 36)
+                    st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
+                    return True
+        except: pass
+    return False
+
+def clear_backup():
+    if st.session_state.zalogowany_zawodnik:
+        plik = get_autosave_file()
+        if os.path.exists(plik): os.remove(plik)
+
 # --- INICJALIZACJA ZMIENNYCH SPRZĘTU ---
 zmienne_sprzet = ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]
 for d in dystanse_lista:
@@ -258,7 +293,10 @@ if not st.session_state.zalogowany_zawodnik:
                 zapisany_pin = konta[czysta_nazwa]
                 if zapisany_pin == podany_pin or zapisany_pin.zfill(len(podany_pin)) == podany_pin:
                     st.session_state.zalogowany_zawodnik = czysta_nazwa
-                    save_settings() 
+                    
+                    # Ładowanie osobistych ustawień (dystanse i język)
+                    load_user_settings(czysta_nazwa)
+                    load_backup() # Przywraca niedokończony trening, jeśli istnieje!
                     
                     zapisane_dane = pobierz_profil_sprzetu(czysta_nazwa)
                     if zapisane_dane:
@@ -288,17 +326,21 @@ if not st.session_state.zalogowany_zawodnik:
         nowy_zawodnik = st.text_input("Twoje Imię / Pseudonim:", key="rej_nazwa")
         nowy_pin = st.text_input("Wymyśl 4-cyfrowy PIN:", type="password", key="rej_pin")
         
-        # NOWOŚĆ: Zabezpieczenie anty-botowe
-        podany_kod_klubu = st.text_input("Tajny Kod Klubu (zapytaj trenera/admina):", type="password", key="rej_kod")
+        # OTO ON! BRAKUJĄCY KOD KLUBU!
+        podany_kod_klubu = st.text_input("Tajny Kod Klubu (zapytaj admina):", type="password", key="rej_kod")
         
         st.write("")
         if st.button("Stwórz konto", type="primary", use_container_width=True):
             czysta_nowa_nazwa = nowy_zawodnik.strip()
+            
             if podany_kod_klubu != KOD_KLUBU:
-                st.error("❌ Błędny Kod Klubu! Ochrona przed botami aktywna.")
-            elif not czysta_nowa_nazwa: st.warning("Imię nie może być puste!")
-            elif czysta_nowa_nazwa in konta: st.warning("Taki zawodnik już istnieje!")
-            elif len(nowy_pin) < 4: st.warning("PIN musi mieć co najmniej 4 znaki!")
+                st.error("❌ Błędny Kod Klubu! Ochrona przed obcymi botami aktywna.")
+            elif not czysta_nowa_nazwa: 
+                st.warning("Imię nie może być puste!")
+            elif czysta_nowa_nazwa in konta: 
+                st.warning("Taki zawodnik już istnieje!")
+            elif len(nowy_pin) < 4: 
+                st.warning("PIN musi mieć co najmniej 4 znaki!")
             else:
                 if dodaj_uzytkownika(czysta_nowa_nazwa, nowy_pin):
                     st.success("✅ Konto założone pomyślnie! Przejdź do logowania.")
@@ -358,40 +400,10 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
         return True
     except: return False
 
-# --- SYSTEM AUTO-SAVE ---
-def save_backup():
-    if st.session_state.get('started'):
-        backup_data = {
-            "started": True, "scores": st.session_state.scores, "extra_arrows": st.session_state.extra_arrows,
-            "event_info": st.session_state.event_info, "max_arrows_per_round": st.session_state.max_arrows_per_round,
-            "max_total_arrows": st.session_state.max_total_arrows
-        }
-        with open(AUTOSAVE_FILE, "w") as f: json.dump(backup_data, f)
-
-def load_backup():
-    if os.path.exists(AUTOSAVE_FILE):
-        try:
-            with open(AUTOSAVE_FILE, "r") as f:
-                data = json.load(f)
-                if data.get("started"):
-                    st.session_state.started = True
-                    st.session_state.scores = data.get("scores", [])
-                    st.session_state.extra_arrows = data.get("extra_arrows", 0)
-                    st.session_state.event_info = data.get("event_info", {})
-                    st.session_state.max_arrows_per_round = data.get("max_arrows_per_round", 36)
-                    st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
-                    return True
-        except: pass
-    return False
-
-def clear_backup():
-    if os.path.exists(AUTOSAVE_FILE): os.remove(AUTOSAVE_FILE)
-
 if 'started' not in st.session_state:
-    if not load_backup():
-        st.session_state.started = False
-        st.session_state.scores = []
-        st.session_state.extra_arrows = 0
+    st.session_state.started = False
+    st.session_state.scores = []
+    st.session_state.extra_arrows = 0
 
 def add_score(val):
     if len(st.session_state.scores) < st.session_state.max_total_arrows:
@@ -417,9 +429,6 @@ def handle_radio_click():
         if val == "⌫": undo_score() 
         elif val is not None: add_score(val) 
         st.session_state.radio_input = None 
-def zmiana_jezyka():
-    st.session_state.lang = st.session_state.lang_sel
-    save_settings()
 
 # --- GŁÓWNY INTERFEJS (ZAKŁADKI) ---
 st.markdown(f"<div style='text-align: right; color: gray; font-size: 12px; margin-bottom: 5px;'>👤 Zalogowany: <b>{st.session_state.zalogowany_zawodnik}</b></div>", unsafe_allow_html=True)
