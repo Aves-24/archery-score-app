@@ -524,14 +524,13 @@ with tab_staty:
             zakres_kolorow = ['#2E8B57', '#1E88E5', '#2E8B57', '#1E88E5']
             kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
             
-            # POPRAWKA 1: nice=False wymusza koniec skali DOKŁADNIE na wyznaczonej wartości!
             max_wartosc = df_filtrowane[kolumna_y].max()
             if kolumna_y == "Punkty":
-                skala_y = alt.Scale(domain=[0, 720], nice=False) # Zero litości, max to 720!
+                skala_y = alt.Scale(domain=[0, 720], nice=False) 
             else:
                 skala_y = alt.Scale(domain=[0, max_wartosc * 1.25 if max_wartosc > 0 else 10], nice=False)
             
-           baza = alt.Chart(df_filtrowane).encode(
+            baza = alt.Chart(df_filtrowane).encode(
                 x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
             )
             
@@ -541,7 +540,6 @@ with tab_staty:
                 tooltip=['Data', 'Czas', 'Nazwa', 'Punkty', 'Same X', '10', '9', 'M', 'Strzały (Suma)']
             )
             
-            # POPRAWKA 2: clip=False DODANE! Telefon już nie odetnie cyfr.
             teksty = baza.mark_text(
                 align='center',
                 baseline='bottom',
@@ -554,7 +552,6 @@ with tab_staty:
                 text=alt.Text(f'{kolumna_y}:Q') 
             )
             
-            # POPRAWKA 3: Dynamiczna szerokość i włączenie przewijania (scroll)
             szerokosc_wykresu = max(350, len(df_filtrowane) * 45)
             
             wykres = (slupki + teksty).properties(
@@ -562,5 +559,4 @@ with tab_staty:
                 height=350
             )
             
-            # Wyłączamy kompresowanie do ekranu (False zamiast True) - to uaktywnia poziomy pasek przewijania
             st.altair_chart(wykres, use_container_width=False)
