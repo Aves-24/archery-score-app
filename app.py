@@ -13,12 +13,6 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 NAZWA_ARKUSZA = "Karta_Punktowa"
 ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Wpisz tu prawdziwy link do swojej apki!
 
-# Baza zawodników (Zmień imiona i PIN-y)
-ZAWODNICY = {
-    "Rafael": "1234",
-    "Tomek": "0000"
-}
-
 # --- PLIKI ZAPISU ---
 AUTOSAVE_FILE = "autosave.json"
 SETTINGS_FILE = "settings.json"
@@ -87,7 +81,7 @@ T = {
     }
 }
 
-# --- FUNKCJE USTAWIEŃ, ZAPISU I LOGOWANIA ---
+# --- FUNKCJE USTAWIEŃ I SESJI ---
 def load_settings():
     lang = "PL"
     zawodnik = None
@@ -120,26 +114,93 @@ def wyloguj():
     save_settings()
     st.rerun()
 
-# --- EKRAN LOGOWANIA ---
+# --- NOWE: FUNKCJE BAZY UŻYTKOWNIKÓW (REJESTRACJA W ARKUSZU "Konta") ---
+@st.cache_data(ttl=30)
+def pobierz_uzytkownikow():
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        creds_dict = json.loads(klucz_tekst)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open(NAZWA_ARKUSZA)
+        
+        try:
+            ws = sh.worksheet("Konta")
+        except:
+            # Jeśli zakładka "Konta" nie istnieje, robot sam ją stworzy!
+            ws = sh.add_worksheet(title="Konta", rows="100", cols="2")
+            ws.append_row(["Zawodnik", "PIN"])
+            return {}
+            
+        zapisy = ws.get_all_records()
+        return {str(r["Zawodnik"]): str(r["PIN"]) for r in zapisy}
+    except Exception as e:
+        print(f"Błąd pobierania kont: {e}")
+        return {}
+
+def dodaj_uzytkownika(nazwa, pin):
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        creds_dict = json.loads(klucz_tekst)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open(NAZWA_ARKUSZA)
+        ws = sh.worksheet("Konta")
+        ws.append_row([nazwa, str(pin)])
+        st.cache_data.clear() # Czyści pamięć, żeby nowy gracz od razu pojawił się na liście
+        return True
+    except:
+        return False
+
+# --- EKRAN LOGOWANIA / REJESTRACJI ---
 if not st.session_state.zalogowany_zawodnik:
     st.markdown(f"""
     <div style='background-color: #2E8B57; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center;'>
-        <h2 style='color: white; margin: 0;'>🏹 Logowanie Łucznika</h2>
+        <h2 style='color: white; margin: 0;'>🏹 Profil Łucznika</h2>
     </div>
     """, unsafe_allow_html=True)
     
-    wybrany_zawodnik = st.selectbox("Wybierz swoje imię:", list(ZAWODNICY.keys()))
-    podany_pin = st.text_input("Podaj 4-cyfrowy PIN:", type="password")
+    konta = pobierz_uzytkownikow()
     
-    if st.button("Wejdź na strzelnicę", type="primary", use_container_width=True):
-        if ZAWODNICY.get(wybrany_zawodnik) == podany_pin:
-            st.session_state.zalogowany_zawodnik = wybrany_zawodnik
-            save_settings() 
-            st.success(f"Witaj, {wybrany_zawodnik}!")
-            time.sleep(1)
-            st.rerun()
+    tab_log, tab_rej = st.tabs(["🔐 Zaloguj się", "📝 Stwórz konto"])
+    
+    with tab_log:
+        if not konta:
+            st.info("Brak zarejestrowanych zawodników. Przejdź do zakładki obok, aby założyć pierwszy profil!")
         else:
-            st.error("❌ Błędny PIN! Spróbuj ponownie.")
+            wybrany_zawodnik = st.selectbox("Wybierz swoje imię:", list(konta.keys()))
+            podany_pin = st.text_input("Podaj 4-cyfrowy PIN:", type="password", key="login_pin")
+            
+            st.write("")
+            if st.button("Wejdź na strzelnicę", type="primary", use_container_width=True):
+                if konta.get(wybrany_zawodnik) == podany_pin:
+                    st.session_state.zalogowany_zawodnik = wybrany_zawodnik
+                    save_settings() 
+                    st.success(f"Witaj, {wybrany_zawodnik}!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("❌ Błędny PIN! Spróbuj ponownie.")
+                    
+    with tab_rej:
+        st.write("Podaj swoje dane, aby stworzyć własny, prywatny profil wyników.")
+        nowy_zawodnik = st.text_input("Twoje Imię / Pseudonim:")
+        nowy_pin = st.text_input("Wymyśl 4-cyfrowy PIN:", type="password", key="rej_pin")
+        
+        st.write("")
+        if st.button("Stwórz konto", type="primary", use_container_width=True):
+            if not nowy_zawodnik.strip():
+                st.warning("Imię nie może być puste!")
+            elif nowy_zawodnik.strip() in konta:
+                st.warning("Taki zawodnik już istnieje! Użyj innego imienia (np. dodaj pierwszą literę nazwiska).")
+            elif len(nowy_pin) < 4:
+                st.warning("PIN musi mieć co najmniej 4 znaki!")
+            else:
+                sukces = dodaj_uzytkownika(nowy_zawodnik.strip(), nowy_pin)
+                if sukces:
+                    st.success("✅ Konto założone pomyślnie! Zaloguj się w zakładce obok.")
+                    time.sleep(2)
+                    st.rerun()
+                else:
+                    st.error("❌ Błąd przy zakładaniu konta. Połączenie z bazą nieudane.")
     st.stop() 
 
 # --- POBIERANIE DANYCH Z GOOGLE ---
@@ -151,11 +212,10 @@ def pobierz_dane_z_arkusza(zawodnik):
         gc = gspread.service_account_from_dict(creds_dict)
         sh = gc.open(NAZWA_ARKUSZA)
         
-        # Próbuje otworzyć zakładkę konkretnego zawodnika
         try:
             worksheet = sh.worksheet(zawodnik)
         except:
-            return pd.DataFrame() # Jeśli zakładka jeszcze nie istnieje, zwraca pustą tabelę
+            return pd.DataFrame() 
             
         zapisy = worksheet.get_all_records()
         
@@ -189,11 +249,9 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
         
         zawodnik = st.session_state.zalogowany_zawodnik
         
-        # INTELIGENTNE TWORZENIE ZAKŁADEK!
         try:
             worksheet = sh.worksheet(zawodnik)
         except:
-            # Jeśli zakładka nie istnieje, robot sam ją stworzy i doda nagłówki!
             worksheet = sh.add_worksheet(title=zawodnik, rows="100", cols="20")
             naglowki = ["Data", "Czas", "Typ", "Nazwa", "Dystans", "Punkty", "Max", "Skuteczność %", "Strzały (Suma)", "10+X", "Same X", "Wizjer Dziurka", "Wizjer Skala", "10", "9", "M"]
             worksheet.append_row(naglowki)
@@ -552,7 +610,6 @@ with tab_staty:
     </style>
     """, unsafe_allow_html=True)
     
-    # Wywołuje pobieranie danych TYLKO dla osoby zalogowanej
     df = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
     
     if df.empty:
