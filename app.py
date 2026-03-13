@@ -549,22 +549,45 @@ with tab_staty:
                 x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
             )
             
-            # NOWY, UPORZĄDKOWANY DYMEK (TOOLTIP) - Dokładnie według Twojej kolejności!
+            # TŁUMACZENIE DYMKÓW (TOOLTIP) NA PL / DE
+            if lang == "PL":
+                tt_punkty = "🎯 Punkty"
+                tt_x = "❌ Same X"
+                tt_10 = "🔟 Wszystkie 10"
+                tt_9 = "9️⃣ Dziewiątki"
+                tt_m = "Ⓜ️ Pudła (M)"
+                tt_wydarzenie = "🏹 Wydarzenie"
+                tt_strzaly = "🎯 Ilość strzał"
+                tt_data = "📅 Data"
+                tt_czas = "⏰ Godzina"
+            else:
+                tt_punkty = "🎯 Punkte"
+                tt_x = "❌ Nur X"
+                tt_10 = "🔟 Alle 10er"
+                tt_9 = "9️⃣ 9er"
+                tt_m = "Ⓜ️ Fehler (M)"
+                tt_wydarzenie = "🏹 Ereignis"
+                tt_strzaly = "🎯 Pfeilanzahl"
+                tt_data = "📅 Datum"
+                tt_czas = "⏰ Uhrzeit"
+
+            # ŚCISŁA KOLEJNOŚĆ W DYMKU
             narzedzia = [
-                alt.Tooltip('Punkty:Q', title='🎯 Punkty'),
-                alt.Tooltip('Wydarzenie:N', title='Rodzaj'),
-                alt.Tooltip('Strzały (Suma):Q', title='🏹 Ilość strzał'),
-                alt.Tooltip('Same X:Q', title='X'),
-                alt.Tooltip('10:Q', title='10'),
-                alt.Tooltip('9:Q', title='9'),
-                alt.Tooltip('Data:N', title='📅 Data'),
-                alt.Tooltip('Czas:N', title='⏰ Godzina')
+                alt.Tooltip('Punkty:Q', title=tt_punkty),
+                alt.Tooltip('Same X:Q', title=tt_x),
+                alt.Tooltip('10:Q', title=tt_10),
+                alt.Tooltip('9:Q', title=tt_9),
+                alt.Tooltip('M:Q', title=tt_m),
+                alt.Tooltip('Wydarzenie:N', title=tt_wydarzenie),
+                alt.Tooltip('Strzały (Suma):Q', title=tt_strzaly),
+                alt.Tooltip('Data:N', title=tt_data),
+                alt.Tooltip('Czas:N', title=tt_czas)
             ]
             
             slupki = baza.mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
                 y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz, scale=skala_y), 
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
-                tooltip=narzedzia # Używamy nowej listy narzędzi
+                tooltip=narzedzia # Wrzucamy tu naszą żelazną kolejność
             )
             
             teksty = baza.mark_text(
