@@ -481,6 +481,16 @@ with tab_karta:
 
 # --- ZAKŁADKA STATYSTYK ---
 with tab_staty:
+    # MAGIA CSS: Blokuje przesuwanie całej strony na telefonie i robi scrolla TYLKO dla wykresu!
+    st.markdown("""
+    <style>
+    div[data-testid="stVegaLiteChart"] {
+        width: 100%;
+        overflow-x: auto;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     df = pobierz_dane_z_arkusza()
     
     if df.empty:
@@ -520,6 +530,11 @@ with tab_staty:
             df_filtrowane = df_filtrowane.copy() 
             df_filtrowane["Sesja"] = df_filtrowane["Data"] + " (" + df_filtrowane["Czas"].astype(str).str[:5] + ")"
             
+            # Inteligentne łączenie Typu i Nazwy specjalnie do nowego dymku!
+            df_filtrowane["Wydarzenie"] = df_filtrowane.apply(
+                lambda row: f"{row['Typ']} - {row['Nazwa']}" if row['Nazwa'] != "-" else row['Typ'], axis=1
+            )
+            
             domena_typow = [T["PL"]["training"], T["PL"]["tournament"], T["DE"]["training"], T["DE"]["tournament"]]
             zakres_kolorow = ['#2E8B57', '#1E88E5', '#2E8B57', '#1E88E5']
             kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
@@ -534,10 +549,22 @@ with tab_staty:
                 x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
             )
             
+            # NOWY, UPORZĄDKOWANY DYMEK (TOOLTIP) - Dokładnie według Twojej kolejności!
+            narzedzia = [
+                alt.Tooltip('Punkty:Q', title='🎯 Punkty'),
+                alt.Tooltip('Wydarzenie:N', title='Rodzaj'),
+                alt.Tooltip('Strzały (Suma):Q', title='🏹 Ilość strzał'),
+                alt.Tooltip('Same X:Q', title='X'),
+                alt.Tooltip('10:Q', title='10'),
+                alt.Tooltip('9:Q', title='9'),
+                alt.Tooltip('Data:N', title='📅 Data'),
+                alt.Tooltip('Czas:N', title='⏰ Godzina')
+            ]
+            
             slupki = baza.mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
                 y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz, scale=skala_y), 
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
-                tooltip=['Data', 'Czas', 'Nazwa', 'Punkty', 'Same X', '10', '9', 'M', 'Strzały (Suma)']
+                tooltip=narzedzia # Używamy nowej listy narzędzi
             )
             
             teksty = baza.mark_text(
