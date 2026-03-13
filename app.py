@@ -11,7 +11,7 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Pamiętaj o swoim linku!
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- PAMIĘTAJ O SWOIM LINKU!
 
 # --- PLIKI ZAPISU ---
 AUTOSAVE_FILE = "autosave.json"
@@ -51,7 +51,6 @@ T = {
         "stat_metric": "Pokaż na wykresie:",
         "visier": "🔭 Celownik (Visier)",
         "choose_dist_settings": "Zaznacz widoczne dystanse na torze:",
-        "scale": "Skala (Fein)",
         "bow_setup": "🏹 Łuk (Bogen-Setup)",
         "draw_weight": "Siła (Zuggewicht) [lbs]",
         "brace_height": "Wys. cięciwy (Standhöhe) [cm/in]",
@@ -94,7 +93,6 @@ T = {
         "stat_metric": "Zeige im Diagramm:",
         "visier": "🔭 Visier",
         "choose_dist_settings": "Sichtbare Distanzen markieren:",
-        "scale": "Feineinstellung",
         "bow_setup": "🏹 Bogen-Setup",
         "draw_weight": "Zuggewicht [lbs]",
         "brace_height": "Standhöhe [cm/in]",
@@ -205,20 +203,29 @@ def zapisz_profil_sprzetu(zawodnik, dane):
         sh = gc.open(NAZWA_ARKUSZA)
         try: ws = sh.worksheet("Profil_Sprzetu")
         except:
-            ws = sh.add_worksheet(title="Profil_Sprzetu", rows="100", cols="20")
+            ws = sh.add_worksheet(title="Profil_Sprzetu", rows="100", cols="31")
             naglowki = ["Data", "Zawodnik", "Zuggewicht", "Standhoehe", "Tiller", "Nockpunkt", "Pfeil_Modell", "Pfeil_Spine", "Pfeil_Laenge", "Pfeil_Spitze"]
-            for d in dystanse_lista: naglowki.append(f"sk_{d}")
+            for d in dystanse_lista: naglowki.extend([f"aus_{d}", f"hoehe_{d}", f"seite_{d}"])
             ws.append_row(naglowki)
             
         now = datetime.now().strftime("%d.%m.%Y %H:%M")
         wiersz = [now, zawodnik, dane['zuggewicht'], dane['standhoehe'], dane['tiller'], dane['nockpunkt'], 
                   dane['pfeil_modell'], dane['pfeil_spine'], dane['pfeil_laenge'], dane['pfeil_spitze']]
-        for d in dystanse_lista: wiersz.append(dane[f"sk_{d}"])
+        for d in dystanse_lista: wiersz.extend([dane[f"aus_{d}"], dane[f"hoehe_{d}"], dane[f"seite_{d}"]])
         
         ws.append_row(wiersz)
         return True
     except Exception as e:
         return False
+
+# --- INICJALIZACJA ZMIENNYCH SPRZĘTU ---
+zmienne_sprzet = ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]
+for d in dystanse_lista:
+    if f"aus_{d}" not in st.session_state: st.session_state[f"aus_{d}"] = ""
+    if f"hoehe_{d}" not in st.session_state: st.session_state[f"hoehe_{d}"] = ""
+    if f"seite_{d}" not in st.session_state: st.session_state[f"seite_{d}"] = ""
+for z in zmienne_sprzet:
+    if z not in st.session_state: st.session_state[z] = ""
 
 # --- EKRAN LOGOWANIA / REJESTRACJI ---
 if not st.session_state.zalogowany_zawodnik:
@@ -251,7 +258,9 @@ if not st.session_state.zalogowany_zawodnik:
                     zapisane_dane = pobierz_profil_sprzetu(czysta_nazwa)
                     if zapisane_dane:
                         for d in dystanse_lista:
-                            st.session_state[f"sk_{d}"] = str(zapisane_dane.get(f"sk_{d}", ""))
+                            st.session_state[f"aus_{d}"] = str(zapisane_dane.get(f"aus_{d}", ""))
+                            st.session_state[f"hoehe_{d}"] = str(zapisane_dane.get(f"hoehe_{d}", ""))
+                            st.session_state[f"seite_{d}"] = str(zapisane_dane.get(f"seite_{d}", ""))
                         st.session_state["zuggewicht"] = str(zapisane_dane.get("Zuggewicht", ""))
                         st.session_state["standhoehe"] = str(zapisane_dane.get("Standhoehe", ""))
                         st.session_state["tiller"] = str(zapisane_dane.get("Tiller", ""))
@@ -287,13 +296,6 @@ if not st.session_state.zalogowany_zawodnik:
                     st.rerun()
                 else: st.error("❌ Błąd przy zakładaniu konta.")
     st.stop() 
-
-# --- INICJALIZACJA ZMIENNYCH SPRZĘTU ---
-zmienne_sprzet = ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]
-for d in dystanse_lista:
-    if f"sk_{d}" not in st.session_state: st.session_state[f"sk_{d}"] = ""
-for z in zmienne_sprzet:
-    if z not in st.session_state: st.session_state[z] = ""
 
 # --- ZAPIS PUNKTACJI DO GOOGLE SHEETS ---
 @st.cache_data(ttl=15)
@@ -337,8 +339,8 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
             dane_treningu["Data"], now.strftime("%H:%M:%S"), dane_treningu["Typ"], dane_treningu["Nazwa"],
             dane_treningu["Dystans"], statystyki["Punkty"], statystyki["Max"], f"{statystyki['Skuteczność']:.1f}%",
             statystyki["Strzały"], statystyki["10_i_X"], statystyki["X"],
-            "-", # Wypełniacz w miejsce usuniętej 'Dziurki' dla starych arkuszy
-            dane_treningu["CelownikSkala"],
+            "-", # Puste, relikt po starej Dziurce
+            dane_treningu["CelownikSkala"], # Tutaj ładujemy połączony zapis Aus/Hoehe/Seite
             statystyki["10"], statystyki["9"], statystyki["M"]
         ]
         worksheet.append_row(wiersz)
@@ -442,7 +444,13 @@ with tab_karta:
 
         st.write("")
         if st.button(T[lang]["start_btn"], type="primary", use_container_width=True):
-            base_info["CelownikSkala"] = st.session_state[f"sk_{dystans}"].strip() if st.session_state[f"sk_{dystans}"].strip() else "-"
+            # Składamy 3 ustawienia w jeden ciąg, żeby elegancko wysyłał się do bazy jako wizjer
+            czesci = []
+            if st.session_state[f'aus_{dystans}']: czesci.append(f"A:{st.session_state[f'aus_{dystans}']}")
+            if st.session_state[f'hoehe_{dystans}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans}']}")
+            if st.session_state[f'seite_{dystans}']: czesci.append(f"S:{st.session_state[f'seite_{dystans}']}")
+            base_info["CelownikSkala"] = " | ".join(czesci) if czesci else "-"
+            
             st.session_state.event_info = base_info
             st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
             st.session_state.max_total_arrows = st.session_state.max_arrows_per_round * 2
@@ -477,18 +485,28 @@ with tab_karta:
             st.markdown(f"#### {T[lang]['visier']}")
             st.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['choose_dist_settings']}</span>", unsafe_allow_html=True)
             
-            c_vis1, c_vis2 = st.columns([1.5, 1])
-            c_vis1.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['dist']}</span>", unsafe_allow_html=True)
-            c_vis2.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['scale']}</span>", unsafe_allow_html=True)
+            c_vis1, c_vis2, c_vis3, c_vis4 = st.columns([0.8, 1, 1, 1])
+            c_vis1.markdown(f"<span style='font-size:12px; color:gray;'>Dist.</span>", unsafe_allow_html=True)
+            c_vis2.markdown(f"<span style='font-size:12px; color:gray;'>Ausleger</span>", unsafe_allow_html=True)
+            c_vis3.markdown(f"<span style='font-size:12px; color:gray;'>Höhe</span>", unsafe_allow_html=True)
+            c_vis4.markdown(f"<span style='font-size:12px; color:gray;'>Seite</span>", unsafe_allow_html=True)
             
-            # WIDOK BEZ DZIURKI (TYLKO SKALA)
+            # WIDOK GHOST TEXT (PLACEHOLDER)
             for d in dystanse_lista:
-                c1, c2 = st.columns([1.5, 1])
+                c1, c2, c3, c4 = st.columns([0.8, 1, 1, 1])
                 c1.checkbox(d, value=(d in st.session_state.aktywne_dystanse), key=f"chk_{d}", on_change=zmiana_dystansow)
-                c2.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
+                
+                p_aus = st.session_state[f"aus_{d}"] if st.session_state[f"aus_{d}"] else "Ausl."
+                p_hoehe = st.session_state[f"hoehe_{d}"] if st.session_state[f"hoehe_{d}"] else "Höhenv."
+                p_seite = st.session_state[f"seite_{d}"] if st.session_state[f"seite_{d}"] else "Seitenv."
+                
+                c2.text_input(f"Aus {d}", placeholder=p_aus, key=f"ui_aus_{d}", label_visibility="collapsed")
+                c3.text_input(f"Höhe {d}", placeholder=p_hoehe, key=f"ui_hoehe_{d}", label_visibility="collapsed")
+                c4.text_input(f"Seite {d}", placeholder=p_seite, key=f"ui_seite_{d}", label_visibility="collapsed")
             
             st.write("")
             if st.button("💾 Zapisz profil w chmurze", use_container_width=True):
+                # POBIERAMY NOWE LUB ZACHOWUJEMY STARE (GHOST)
                 dane_sprzetu = {
                     "zuggewicht": st.session_state["zuggewicht"], "standhoehe": st.session_state["standhoehe"],
                     "tiller": st.session_state["tiller"], "nockpunkt": st.session_state["nockpunkt"],
@@ -496,10 +514,22 @@ with tab_karta:
                     "pfeil_laenge": st.session_state["pfeil_laenge"], "pfeil_spitze": st.session_state["pfeil_spitze"]
                 }
                 for d in dystanse_lista:
-                    dane_sprzetu[f"sk_{d}"] = st.session_state[f"sk_{d}"]
+                    nw_aus = st.session_state[f"ui_aus_{d}"].strip()
+                    nw_hoehe = st.session_state[f"ui_hoehe_{d}"].strip()
+                    nw_seite = st.session_state[f"ui_seite_{d}"].strip()
+                    
+                    if nw_aus: st.session_state[f"aus_{d}"] = nw_aus
+                    if nw_hoehe: st.session_state[f"hoehe_{d}"] = nw_hoehe
+                    if nw_seite: st.session_state[f"seite_{d}"] = nw_seite
+                    
+                    dane_sprzetu[f"aus_{d}"] = st.session_state[f"aus_{d}"]
+                    dane_sprzetu[f"hoehe_{d}"] = st.session_state[f"hoehe_{d}"]
+                    dane_sprzetu[f"seite_{d}"] = st.session_state[f"seite_{d}"]
                     
                 if zapisz_profil_sprzetu(st.session_state.zalogowany_zawodnik, dane_sprzetu):
                     st.success("✅ Zapisano! Będą z Tobą przy każdym logowaniu.")
+                    time.sleep(1)
+                    st.rerun()
                 else: st.error("❌ Błąd połączenia z Arkuszem.")
             
             # --- POBIERANIE RAPORTU SPRZĘTU (Z TŁUMACZENIEM DE/PL) ---
@@ -522,7 +552,7 @@ with tab_karta:
                 raport_txt += f"{'-'*40}\n"
                 raport_txt += f"[VISIER]\n"
                 for d in st.session_state.aktywne_dystanse:
-                    raport_txt += f"[{d}] -> Skala: {st.session_state.get(f'sk_{d}','')}\n"
+                    raport_txt += f"[{d}] -> Ausleger: {st.session_state.get(f'aus_{d}','')} | Höhe: {st.session_state.get(f'hoehe_{d}','')} | Seite: {st.session_state.get(f'seite_{d}','')}\n"
             else:
                 raport_txt = f"🏹 PROFIL SPRZĘTU: {st.session_state.zalogowany_zawodnik}\n"
                 raport_txt += f"Data pobrania: {date.today().strftime('%d.%m.%Y')}\n"
@@ -541,7 +571,7 @@ with tab_karta:
                 raport_txt += f"{'-'*40}\n"
                 raport_txt += f"[CELOWNIK]\n"
                 for d in st.session_state.aktywne_dystanse:
-                    raport_txt += f"[{d}] -> Skala: {st.session_state.get(f'sk_{d}','')}\n"
+                    raport_txt += f"[{d}] -> Wysięgnik: {st.session_state.get(f'aus_{d}','')} | Wysokość: {st.session_state.get(f'hoehe_{d}','')} | Bok: {st.session_state.get(f'seite_{d}','')}\n"
 
             st.download_button(
                 label=T[lang]["dl_equip_txt"],
@@ -578,7 +608,7 @@ with tab_karta:
         tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
         celownik_tekst = ""
         if info['CelownikSkala'] != "-":
-            celownik_tekst = f" | 🔭 Skala: {info['CelownikSkala']}"
+            celownik_tekst = f" | 🔭 {info['CelownikSkala']}"
             
         st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Data']} | {info['Dystans']}{celownik_tekst}</div>", unsafe_allow_html=True)
 
@@ -755,11 +785,10 @@ with tab_staty:
             st.write("")
             df_export = df_filtrowane.copy()
             
-            # Usuwamy niepotrzebne i techniczne kolumny, o które prosiłeś!
+            # Miotła - wyrzucamy z CSV absolutnie wszystkie techniczne brudy!
             kolumny_do_usuniecia = ["Wizjer Dziurka", "Wizjer Skala", "Zawodnik", "Sesja", "Wydarzenie"]
             df_export.drop(columns=[k for k in kolumny_do_usuniecia if k in df_export.columns], inplace=True)
                 
-            # Tłumaczenie na czysty niemiecki dla wariantu DE
             if lang == "DE":
                 df_export.rename(columns={
                     "Data": "Datum", "Czas": "Uhrzeit", "Typ": "Ereignis",
