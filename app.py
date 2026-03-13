@@ -15,7 +15,7 @@ ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Wpisz tu prawdzi
 
 # Baza zawodników (Zmień imiona i PIN-y)
 ZAWODNICY = {
-    "Rafael": "1234",
+    "Adam": "1234",
     "Tomek": "0000"
 }
 
@@ -426,4 +426,265 @@ with tab_karta:
 
         def render_round_html(round_num, round_scores, cumulative_start):
             r_points = sum(get_num(s) for s in round_scores)
-            r_xs = round_scores.count
+            r_xs = round_scores.count("X")
+            r_10s = round_scores.count("10") + r_xs
+            r_9s = round_scores.count("9")
+            r_max_current = len(round_scores) * 10
+            r_percent = (r_points / r_max_current * 100) if r_max_current > 0 else 0
+            
+            html = f"<div style='margin-bottom: 20px; font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
+            html += f"<div style='display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;'><b>Runde {round_num}</b><span style='font-weight: bold;'>{info['Dystans']}</span></div>"
+            html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black;'>"
+            html += f"<tr style='background-color: #f2f2f2; color: #000000; border-bottom: 1px solid black;'><th rowspan='2' style='border: 1px solid black; border-right: 2px solid black; padding: 2px; width: 30px;'></th><th colspan='{arrows_per_end}' style='border: 1px solid black; padding: 2px; font-size: 14px;'>Pfeile</th><th colspan='2' style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 14px;'>Summen</th></tr>"
+            html += f"<tr style='background-color: #f2f2f2; color: #000000; border-bottom: 2px solid black;'>"
+            for arr in range(1, arrows_per_end + 1):
+                html += f"<th style='border: 1px solid black; padding: 2px; width: 30px; font-size: 12px;'>{arr}</th>"
+            html += f"<th style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 12px;'>Serie</th><th style='border: 1px solid black; padding: 2px; font-size: 12px;'>Übertrag</th></tr>"
+            cumul_total = cumulative_start
+            expected_ends = info['SeriiWRundzie']
+            
+            for end_idx in range(expected_ends):
+                arrow_idx_start = end_idx * arrows_per_end
+                end_scores = round_scores[arrow_idx_start:arrow_idx_start + arrows_per_end]
+                if len(end_scores) > 0:
+                    end_sum = sum(get_num(s) for s in end_scores)
+                    cumul_total += end_sum
+                else: end_sum = ""
+                    
+                arrow_label = (end_idx + 1) * arrows_per_end
+                html += "<tr>"
+                html += f"<td style='border: 1px solid black; border-right: 2px solid black; padding: 4px; font-weight: bold; font-size: 14px;'>{arrow_label}</td>"
+                for j in range(arrows_per_end):
+                    if j < len(end_scores):
+                        val = end_scores[j]
+                        style = get_color_style(val)
+                        circle = f"<div style='width: 22px; height: 22px; border-radius: 50%; {style} display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin: 0 auto; border: 1px solid #aaa;'>{val}</div>"
+                        html += f"<td style='border: 1px solid black; padding: 2px;'>{circle}</td>"
+                    else:
+                        html += "<td style='padding: 2px; border: 1px solid black;'></td>"
+                html += f"<td style='border: 1px solid black; border-left: 2px solid black; padding: 4px; font-weight: bold;'>{end_sum}</td>"
+                html += f"<td style='border: 1px solid black; padding: 4px; font-weight: bold;'>{cumul_total if len(end_scores)>0 else ''}</td>"
+                html += "</tr>"
+                
+            html += f"<tr style='border-top: 2px solid black; background-color: #f9f9f9; color: #000;'><td colspan='{arrows_per_end + 1}' style='text-align: right; padding: 5px; font-weight: bold; border: 1px solid black; border-right: 2px solid black;'>Summe:</td><td colspan='2' style='border: 2px solid black; font-weight: bold; font-size: 16px; padding: 5px;'>{r_points}</td></tr></table>"
+            html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none; color: #000;'><tr>"
+            html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td>"
+            html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td>"
+            html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>9er:<br><b style='font-size: 14px;'>{r_9s}</b></td>"
+            html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; background-color: #f0f8ff;'>%:<br><b style='font-size: 14px;'>{r_percent:.1f}%</b></td>"
+            html += f"</tr></table></div>"
+            return html, cumul_total
+
+        round1_scores = scores[:st.session_state.max_arrows_per_round]
+        round2_scores = scores[st.session_state.max_arrows_per_round:]
+
+        if len(round2_scores) == 0:
+            if len(round1_scores) > 0 or not st.session_state.started:
+                html1, cumul1 = render_round_html(1, round1_scores, 0)
+                st.markdown(html1, unsafe_allow_html=True)
+        else:
+            html1, cumul1 = render_round_html(1, round1_scores, 0)
+            with st.expander(T[lang]["round_fin"], expanded=False):
+                st.markdown(html1, unsafe_allow_html=True)
+            html2, _ = render_round_html(2, round2_scores, cumul1)
+            st.markdown(html2, unsafe_allow_html=True)
+
+        # --- STATYSTYKI KOŃCOWE ---
+        total_points = sum(get_num(s) for s in scores)
+        percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
+        total_arrows_shot = len(scores) + st.session_state.extra_arrows
+        
+        count_x = scores.count("X")
+        count_10_czyste = scores.count("10")
+        count_10_total = count_10_czyste + count_x 
+        count_9 = scores.count("9")
+        count_m = scores.count("M")
+        
+        st.markdown(T[lang]["total_score"])
+        col_s1, col_s2, col_s3 = st.columns(3)
+        col_s1.metric(T[lang]["pts"], f"{total_points} / {max_total_score}")
+        col_s2.metric(T[lang]["arrow_cnt"], f"{total_arrows_shot}")
+        col_s3.metric(T[lang]["eff"], f"{percent:.1f}%")
+        
+        st.write(f"**{T[lang]['sum_10_x']}** {count_10_total} &nbsp;&nbsp;|&nbsp;&nbsp; **{T[lang]['only_x']}** {count_x}")
+        st.write("")
+        
+        st.markdown(f"<span style='font-size:14px; color:gray;'>{T[lang]['warmup']}</span>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        c1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
+        c2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,), use_container_width=True)
+        c3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
+
+        st.write("")
+
+        if st.button(T[lang]["finish"], type="primary", use_container_width=True):
+            statystyki_koncowe = {
+                "Punkty": total_points,
+                "Max": max_total_score,
+                "Skuteczność": percent,
+                "Strzały": total_arrows_shot,
+                "10_i_X": count_10_total, 
+                "X": count_x,
+                "10": count_10_total, 
+                "9": count_9,
+                "M": count_m
+            }
+            
+            sukces = zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe)
+            if sukces:
+                st.success("✅ Zapisano!" if lang=="PL" else "✅ Gespeichert!")
+                time.sleep(1.5)
+            else:
+                st.error("❌ Błąd!" if lang=="PL" else "❌ Fehler!")
+                time.sleep(3)
+            
+            reset()
+            st.rerun()
+
+# --- ZAKŁADKA STATYSTYK ---
+with tab_staty:
+    st.markdown("""
+    <style>
+    div[data-testid="stVegaLiteChart"] {
+        width: 100%;
+        overflow-x: auto;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Wywołuje pobieranie danych TYLKO dla osoby zalogowanej
+    df = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
+    
+    if df.empty:
+        st.info("Brak połączonego arkusza lub arkusz jest pusty." if lang=="PL" else "Keine Daten oder Sheet ist leer.")
+    else:
+        st.write(f"**{T[lang]['choose_dist']}**")
+        wybrany_dystans = st.radio("Dystans stat", dystanse_lista, horizontal=True, label_visibility="collapsed")
+        
+        df_filtrowane = df[df["Dystans"] == wybrany_dystans]
+        
+        if df_filtrowane.empty:
+            st.warning(T[lang]["stat_no_data"])
+        else:
+            st.divider()
+            
+            st.write(f"**{T[lang]['stat_metric']}**")
+            
+            opcje_metryk = {
+                "Punkty": "Punkty", 
+                "Same X": "Same X", 
+                "Wszystkie 10": "10", 
+                "9": "9", 
+                "M (Pudła)": "M", 
+                "Strzały (Suma)": "Strzały (Suma)"
+            } if lang == "PL" else {
+                "Punkte": "Punkty", 
+                "Nur X": "Same X", 
+                "Alle 10er": "10", 
+                "9er": "9", 
+                "M (Fehler)": "M", 
+                "Pfeile (Summe)": "Strzały (Suma)"
+            }
+            
+            wybrana_metryka_klucz = st.radio("Metryka", list(opcje_metryk.keys()), horizontal=True, label_visibility="collapsed")
+            kolumna_y = opcje_metryk[wybrana_metryka_klucz]
+            
+            df_filtrowane = df_filtrowane.copy() 
+            df_filtrowane["Sesja"] = df_filtrowane["Data"] + " (" + df_filtrowane["Czas"].astype(str).str[:5] + ")"
+            
+            df_filtrowane["Wydarzenie"] = df_filtrowane.apply(
+                lambda row: f"{row['Typ']} - {row['Nazwa']}" if row['Nazwa'] != "-" else row['Typ'], axis=1
+            )
+            
+            df_filtrowane['Typ'] = df_filtrowane['Typ'].replace({
+                T["PL"]["training"]: T[lang]["training"],
+                T["DE"]["training"]: T[lang]["training"],
+                T["PL"]["tournament"]: T[lang]["tournament"],
+                T["DE"]["tournament"]: T[lang]["tournament"]
+            })
+            
+            domena_typow = [T[lang]["training"], T[lang]["tournament"]]
+            zakres_kolorow = ['#2E8B57', '#1E88E5']
+            kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
+            
+            max_wartosc = df_filtrowane[kolumna_y].max()
+            if kolumna_y == "Punkty":
+                skala_y = alt.Scale(domain=[0, 720], nice=False) 
+            else:
+                skala_y = alt.Scale(domain=[0, max_wartosc * 1.25 if max_wartosc > 0 else 10], nice=False)
+            
+            baza = alt.Chart(df_filtrowane).encode(
+                x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
+            )
+            
+            if lang == "PL":
+                tt_punkty = "🎯 Punkty"
+                tt_x = "🟡 Same X"
+                tt_10 = "🔟 Wszystkie 10"
+                tt_9 = "9️⃣ Dziewiątki"
+                tt_m = "Ⓜ️ Pudła (M)"
+                tt_wydarzenie = "🏹 Wydarzenie"
+                tt_strzaly = "🎯 Ilość strzał"
+                tt_data = "📅 Data"
+                tt_czas = "⏰ Godzina"
+            else:
+                tt_punkty = "🎯 Punkte"
+                tt_x = "🟡 Nur X"
+                tt_10 = "🔟 Alle 10er"
+                tt_9 = "9️⃣ 9er"
+                tt_m = "Ⓜ️ Fehler (M)"
+                tt_wydarzenie = "🏹 Ereignis"
+                tt_strzaly = "🎯 Pfeilanzahl"
+                tt_data = "📅 Datum"
+                tt_czas = "⏰ Uhrzeit"
+
+            narzedzia = [
+                alt.Tooltip('Punkty:Q', title=tt_punkty),
+                alt.Tooltip('Wydarzenie:N', title=tt_wydarzenie),
+                alt.Tooltip('Strzały (Suma):Q', title=tt_strzaly),
+                alt.Tooltip('Same X:Q', title=tt_x),
+                alt.Tooltip('10:Q', title=tt_10),
+                alt.Tooltip('9:Q', title=tt_9),
+                alt.Tooltip('M:Q', title=tt_m),
+                alt.Tooltip('Data:N', title=tt_data),
+                alt.Tooltip('Czas:N', title=tt_czas)
+            ]
+            
+            slupki = baza.mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+                y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz, scale=skala_y), 
+                color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
+                tooltip=narzedzia 
+            )
+            
+            teksty = baza.mark_text(
+                align='center',
+                baseline='bottom',
+                dy=-5, 
+                fontWeight='bold',
+                fontSize=12,
+                clip=False 
+            ).encode(
+                y=alt.Y(f'{kolumna_y}:Q'),
+                text=alt.Text(f'{kolumna_y}:Q') 
+            )
+            
+            szerokosc_wykresu = max(350, len(df_filtrowane) * 45)
+            
+            wykres = (slupki + teksty).properties(
+                width=szerokosc_wykresu,
+                height=350
+            )
+            
+            st.altair_chart(wykres, use_container_width=False)
+
+# --- PRZYCISK UDOSTĘPNIANIA WHATSAPP NA DOLE STRONY ---
+st.write("")
+st.divider()
+wiadomosc = f"Hej! 👋 Zobacz naszą nową klubową aplikację do punktacji łuczniczej: {ADRES_APLIKACJI}"
+st.markdown(f"""
+    <div style='text-align: center; margin-bottom: 20px;'>
+        <a href="whatsapp://send?text={wiadomosc}" target="_blank" style="text-decoration: none; background-color: #25D366; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            🟢 Udostępnij aplikację przez WhatsApp
+        </a>
+    </div>
+""", unsafe_allow_html=True)
