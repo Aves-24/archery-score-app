@@ -11,7 +11,7 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- ZMIEŃ NA SWÓJ LINK!
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Pamiętaj, zmień to na swój link!
 
 # --- PLIKI ZAPISU ---
 AUTOSAVE_FILE = "autosave.json"
@@ -34,6 +34,7 @@ T = {
         "start_btn": "🚀 ROZPOCZNIJ STRZELANIE",
         "settings_exp": "⚙️ Profil Sprzętu i Ustawienia",
         "lang_label": "Wybierz język / Sprache:",
+        "dist": "Dystans",
         "total_score": "### 📊 Wynik Całkowity (Mecz)",
         "pts": "Punkty",
         "arrow_cnt": "Licznik strzał",
@@ -50,7 +51,6 @@ T = {
         "stat_metric": "Pokaż na wykresie:",
         "visier": "🔭 Celownik (Visier)",
         "choose_dist_settings": "Zaznacz widoczne dystanse na torze:",
-        "hole": "Dziurka (Raster)",
         "scale": "Skala (Fein)",
         "bow_setup": "🏹 Łuk (Bogen-Setup)",
         "draw_weight": "Siła (Zuggewicht) [lbs]",
@@ -77,6 +77,7 @@ T = {
         "start_btn": "🚀 SCHIESSEN STARTEN",
         "settings_exp": "⚙️ Ausrüstung & Einstellungen",
         "lang_label": "Sprache / Wybierz język:",
+        "dist": "Distanz",
         "total_score": "### 📊 Gesamtergebnis (Match)",
         "pts": "Punkte",
         "arrow_cnt": "Pfeilzähler",
@@ -93,7 +94,6 @@ T = {
         "stat_metric": "Zeige im Diagramm:",
         "visier": "🔭 Visier",
         "choose_dist_settings": "Sichtbare Distanzen markieren:",
-        "hole": "Raster (Loch)",
         "scale": "Feineinstellung",
         "bow_setup": "🏹 Bogen-Setup",
         "draw_weight": "Zuggewicht [lbs]",
@@ -205,15 +205,16 @@ def zapisz_profil_sprzetu(zawodnik, dane):
         sh = gc.open(NAZWA_ARKUSZA)
         try: ws = sh.worksheet("Profil_Sprzetu")
         except:
-            ws = sh.add_worksheet(title="Profil_Sprzetu", rows="100", cols="25")
+            # Lista zaktualizowana bez Dziurki
+            ws = sh.add_worksheet(title="Profil_Sprzetu", rows="100", cols="20")
             naglowki = ["Data", "Zawodnik", "Zuggewicht", "Standhoehe", "Tiller", "Nockpunkt", "Pfeil_Modell", "Pfeil_Spine", "Pfeil_Laenge", "Pfeil_Spitze"]
-            for d in dystanse_lista: naglowki.extend([f"dz_{d}", f"sk_{d}"])
+            for d in dystanse_lista: naglowki.append(f"sk_{d}")
             ws.append_row(naglowki)
             
         now = datetime.now().strftime("%d.%m.%Y %H:%M")
         wiersz = [now, zawodnik, dane['zuggewicht'], dane['standhoehe'], dane['tiller'], dane['nockpunkt'], 
                   dane['pfeil_modell'], dane['pfeil_spine'], dane['pfeil_laenge'], dane['pfeil_spitze']]
-        for d in dystanse_lista: wiersz.extend([dane[f"dz_{d}"], dane[f"sk_{d}"]])
+        for d in dystanse_lista: wiersz.append(dane[f"sk_{d}"])
         
         ws.append_row(wiersz)
         return True
@@ -251,7 +252,6 @@ if not st.session_state.zalogowany_zawodnik:
                     zapisane_dane = pobierz_profil_sprzetu(czysta_nazwa)
                     if zapisane_dane:
                         for d in dystanse_lista:
-                            st.session_state[f"dz_{d}"] = str(zapisane_dane.get(f"dz_{d}", ""))
                             st.session_state[f"sk_{d}"] = str(zapisane_dane.get(f"sk_{d}", ""))
                         st.session_state["zuggewicht"] = str(zapisane_dane.get("Zuggewicht", ""))
                         st.session_state["standhoehe"] = str(zapisane_dane.get("Standhoehe", ""))
@@ -292,7 +292,6 @@ if not st.session_state.zalogowany_zawodnik:
 # --- INICJALIZACJA ZMIENNYCH SPRZĘTU ---
 zmienne_sprzet = ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]
 for d in dystanse_lista:
-    if f"dz_{d}" not in st.session_state: st.session_state[f"dz_{d}"] = ""
     if f"sk_{d}" not in st.session_state: st.session_state[f"sk_{d}"] = ""
 for z in zmienne_sprzet:
     if z not in st.session_state: st.session_state[z] = ""
@@ -339,7 +338,8 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
             dane_treningu["Data"], now.strftime("%H:%M:%S"), dane_treningu["Typ"], dane_treningu["Nazwa"],
             dane_treningu["Dystans"], statystyki["Punkty"], statystyki["Max"], f"{statystyki['Skuteczność']:.1f}%",
             statystyki["Strzały"], statystyki["10_i_X"], statystyki["X"],
-            dane_treningu["CelownikDziurka"], dane_treningu["CelownikSkala"],
+            "-", # Wypełniacz w miejsce usuniętej 'Dziurki', żeby nie popsuć ułożenia kolumn starym arkuszom!
+            dane_treningu["CelownikSkala"],
             statystyki["10"], statystyki["9"], statystyki["M"]
         ]
         worksheet.append_row(wiersz)
@@ -443,7 +443,6 @@ with tab_karta:
 
         st.write("")
         if st.button(T[lang]["start_btn"], type="primary", use_container_width=True):
-            base_info["CelownikDziurka"] = st.session_state[f"dz_{dystans}"].strip() if st.session_state[f"dz_{dystans}"].strip() else "-"
             base_info["CelownikSkala"] = st.session_state[f"sk_{dystans}"].strip() if st.session_state[f"sk_{dystans}"].strip() else "-"
             st.session_state.event_info = base_info
             st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
@@ -454,6 +453,7 @@ with tab_karta:
 
         st.divider()
 
+        # MEGA-PROFIL SPRZĘTOWY
         with st.expander(T[lang]["settings_exp"], expanded=False):
             st.write(f"**{T[lang]['lang_label']}**")
             st.radio("Język", ["PL", "DE"], index=0 if lang=="PL" else 1, horizontal=True, key="lang_sel", on_change=zmiana_jezyka, label_visibility="collapsed")
@@ -478,16 +478,15 @@ with tab_karta:
             st.markdown(f"#### {T[lang]['visier']}")
             st.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['choose_dist_settings']}</span>", unsafe_allow_html=True)
             
-            c_vis1, c_vis2, c_vis3 = st.columns([1.2, 1, 1])
-            c_vis1.markdown(f"<span style='font-size:12px; color:gray;'>Dystans</span>", unsafe_allow_html=True)
-            c_vis2.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['hole']}</span>", unsafe_allow_html=True)
-            c_vis3.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['scale']}</span>", unsafe_allow_html=True)
+            c_vis1, c_vis2 = st.columns([1.5, 1])
+            c_vis1.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['dist']}</span>", unsafe_allow_html=True)
+            c_vis2.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['scale']}</span>", unsafe_allow_html=True)
             
+            # WIDOK BEZ DZIURKI (TYLKO SKALA)
             for d in dystanse_lista:
-                c1, c2, c3 = st.columns([1.2, 1, 1])
+                c1, c2 = st.columns([1.5, 1])
                 c1.checkbox(d, value=(d in st.session_state.aktywne_dystanse), key=f"chk_{d}", on_change=zmiana_dystansow)
-                c2.text_input(f"Dz {d}", key=f"dz_{d}", label_visibility="collapsed")
-                c3.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
+                c2.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
             
             st.write("")
             if st.button("💾 Zapisz profil w chmurze", use_container_width=True):
@@ -498,34 +497,53 @@ with tab_karta:
                     "pfeil_laenge": st.session_state["pfeil_laenge"], "pfeil_spitze": st.session_state["pfeil_spitze"]
                 }
                 for d in dystanse_lista:
-                    dane_sprzetu[f"dz_{d}"] = st.session_state[f"dz_{d}"]
                     dane_sprzetu[f"sk_{d}"] = st.session_state[f"sk_{d}"]
                     
                 if zapisz_profil_sprzetu(st.session_state.zalogowany_zawodnik, dane_sprzetu):
                     st.success("✅ Zapisano! Będą z Tobą przy każdym logowaniu.")
                 else: st.error("❌ Błąd połączenia z Arkuszem.")
             
-            # --- NOWOŚĆ: POBIERANIE RAPORTU SPRZĘTU (TXT) ---
+            # --- POBIERANIE RAPORTU SPRZĘTU (Z TŁUMACZENIEM DE/PL) ---
             st.write("")
-            raport_txt = f"🏹 PROFIL SPRZĘTU / AUSRÜSTUNGSPROFIL: {st.session_state.zalogowany_zawodnik}\n"
-            raport_txt += f"Data pobrania / Datum: {date.today().strftime('%d.%m.%Y')}\n"
-            raport_txt += f"{'-'*40}\n"
-            raport_txt += f"[ŁUK / BOGEN]\n"
-            raport_txt += f"Siła (Zuggewicht): {st.session_state.get('zuggewicht','')} lbs\n"
-            raport_txt += f"Wys. cięciwy (Standhöhe): {st.session_state.get('standhoehe','')}\n"
-            raport_txt += f"Tiller: {st.session_state.get('tiller','')} mm\n"
-            raport_txt += f"P. siodełka (Nockpunkt): {st.session_state.get('nockpunkt','')} mm\n"
-            raport_txt += f"{'-'*40}\n"
-            raport_txt += f"[STRZAŁY / PFEILE]\n"
-            raport_txt += f"Model: {st.session_state.get('pfeil_modell','')}\n"
-            raport_txt += f"Spine: {st.session_state.get('pfeil_spine','')}\n"
-            raport_txt += f"Długość (Länge): {st.session_state.get('pfeil_laenge','')} in\n"
-            raport_txt += f"Grot (Spitze): {st.session_state.get('pfeil_spitze','')} gr\n"
-            raport_txt += f"{'-'*40}\n"
-            raport_txt += f"[WIZJER / VISIER]\n"
-            for d in st.session_state.aktywne_dystanse:
-                raport_txt += f"[{d}] -> Dziurka: {st.session_state.get(f'dz_{d}','')} | Skala: {st.session_state.get(f'sk_{d}','')}\n"
-                
+            if lang == "DE":
+                raport_txt = f"🏹 AUSRÜSTUNGSPROFIL: {st.session_state.zalogowany_zawodnik}\n"
+                raport_txt += f"Datum: {date.today().strftime('%d.%m.%Y')}\n"
+                raport_txt += f"{'-'*40}\n"
+                raport_txt += f"[BOGEN]\n"
+                raport_txt += f"Zuggewicht: {st.session_state.get('zuggewicht','')} lbs\n"
+                raport_txt += f"Standhoehe: {st.session_state.get('standhoehe','')}\n"
+                raport_txt += f"Tiller: {st.session_state.get('tiller','')} mm\n"
+                raport_txt += f"Nockpunkt: {st.session_state.get('nockpunkt','')} mm\n"
+                raport_txt += f"{'-'*40}\n"
+                raport_txt += f"[PFEILE]\n"
+                raport_txt += f"Modell: {st.session_state.get('pfeil_modell','')}\n"
+                raport_txt += f"Spine: {st.session_state.get('pfeil_spine','')}\n"
+                raport_txt += f"Laenge: {st.session_state.get('pfeil_laenge','')} in\n"
+                raport_txt += f"Spitze: {st.session_state.get('pfeil_spitze','')} gr\n"
+                raport_txt += f"{'-'*40}\n"
+                raport_txt += f"[VISIER]\n"
+                for d in st.session_state.aktywne_dystanse:
+                    raport_txt += f"[{d}] -> Skala: {st.session_state.get(f'sk_{d}','')}\n"
+            else:
+                raport_txt = f"🏹 PROFIL SPRZĘTU: {st.session_state.zalogowany_zawodnik}\n"
+                raport_txt += f"Data pobrania: {date.today().strftime('%d.%m.%Y')}\n"
+                raport_txt += f"{'-'*40}\n"
+                raport_txt += f"[ŁUK]\n"
+                raport_txt += f"Siła (lbs): {st.session_state.get('zuggewicht','')}\n"
+                raport_txt += f"Wys. cięciwy: {st.session_state.get('standhoehe','')}\n"
+                raport_txt += f"Tiller (mm): {st.session_state.get('tiller','')}\n"
+                raport_txt += f"P. siodełka (mm): {st.session_state.get('nockpunkt','')}\n"
+                raport_txt += f"{'-'*40}\n"
+                raport_txt += f"[STRZAŁY]\n"
+                raport_txt += f"Model: {st.session_state.get('pfeil_modell','')}\n"
+                raport_txt += f"Spine: {st.session_state.get('pfeil_spine','')}\n"
+                raport_txt += f"Długość (in): {st.session_state.get('pfeil_laenge','')}\n"
+                raport_txt += f"Grot (gr): {st.session_state.get('pfeil_spitze','')}\n"
+                raport_txt += f"{'-'*40}\n"
+                raport_txt += f"[CELOWNIK]\n"
+                for d in st.session_state.aktywne_dystanse:
+                    raport_txt += f"[{d}] -> Skala: {st.session_state.get(f'sk_{d}','')}\n"
+
             st.download_button(
                 label=T[lang]["dl_equip_txt"],
                 data=raport_txt.encode('utf-8'),
@@ -560,8 +578,8 @@ with tab_karta:
         
         tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
         celownik_tekst = ""
-        if info['CelownikDziurka'] != "-" or info['CelownikSkala'] != "-":
-            celownik_tekst = f" | 🔭 {info['CelownikDziurka']} | {info['CelownikSkala']}"
+        if info['CelownikSkala'] != "-":
+            celownik_tekst = f" | 🔭 Skala: {info['CelownikSkala']}"
             
         st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Data']} | {info['Dystans']}{celownik_tekst}</div>", unsafe_allow_html=True)
 
@@ -734,9 +752,21 @@ with tab_staty:
             wykres = (slupki + teksty).properties(width=szerokosc_wykresu, height=350)
             st.altair_chart(wykres, use_container_width=False)
 
-            # --- NOWOŚĆ: POBIERANIE STATYSTYK (CSV) ---
+            # --- POBIERANIE STATYSTYK Z TŁUMACZENIEM (CSV) ---
             st.write("")
-            csv_data = df_filtrowane.to_csv(index=False).encode('utf-8')
+            df_export = df_filtrowane.copy()
+            if "Wizjer Dziurka" in df_export.columns:
+                df_export.drop(columns=["Wizjer Dziurka"], inplace=True)
+                
+            if lang == "DE":
+                df_export.rename(columns={
+                    "Data": "Datum", "Czas": "Uhrzeit", "Typ": "Ereignis",
+                    "Nazwa": "Name", "Dystans": "Distanz", "Punkty": "Punkte",
+                    "Skuteczność %": "Trefferquote %", "Strzały (Suma)": "Pfeilanzahl",
+                    "Same X": "Nur X", "Wizjer Skala": "Visier Skala"
+                }, inplace=True)
+                
+            csv_data = df_export.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label=T[lang]["dl_stats_csv"], 
                 data=csv_data, 
