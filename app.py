@@ -5,13 +5,87 @@ from datetime import date
 
 st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
-# --- LISTA DYSTANSÓW ---
-dystanse_lista = ["18m", "30m", "70m"]
+# --- PLIKI ZAPISU ---
 AUTOSAVE_FILE = "autosave.json"
+SETTINGS_FILE = "settings.json"
+
+# --- SŁOWNIK JĘZYKOWY (PL / DE) ---
+T = {
+    "PL": {
+        "title": "🏹 Karta Punktowa",
+        "training": "Trening",
+        "tournament": "Turniej",
+        "event_name": "Nazwa turnieju:",
+        "event_name_ph": "np. Mistrzostwa Klubu",
+        "choose_dist": "🎯 **Wybierz dystans:**",
+        "start_btn": "🚀 ROZPOCZNIJ STRZELANIE",
+        "settings_exp": "⚙️ Ustawienia (Wizjer i Język)",
+        "lang_label": "Wybierz język / Sprache:",
+        "dist": "Dystans",
+        "hole": "Dziurka",
+        "scale": "Skala",
+        "total_score": "### 📊 Wynik Całkowity (Mecz)",
+        "pts": "Punkty",
+        "arrow_cnt": "Licznik strzał",
+        "eff": "Skuteczność",
+        "warmup": "Strzały próbne / rozgrzewka:",
+        "add_6": "➕ 6 strzał",
+        "add_1": "➕ 1 strzała",
+        "undo": "➖ Cofnij",
+        "finish": "Zakończ strzelanie (Wkrótce Google Sheets)",
+        "sum_10_x": "Suma 10+X:",
+        "only_x": "Same X:",
+        "round_fin": "✅ Runda 1 (Zakończona - kliknij, aby rozwinąć)"
+    },
+    "DE": {
+        "title": "🏹 Schießzettel",
+        "training": "Training",
+        "tournament": "Turnier",
+        "event_name": "Turniername:",
+        "event_name_ph": "z.B. Vereinsmeisterschaft",
+        "choose_dist": "🎯 **Wähle Distanz:**",
+        "start_btn": "🚀 SCHIESSEN STARTEN",
+        "settings_exp": "⚙️ Einstellungen (Visier & Sprache)",
+        "lang_label": "Sprache / Wybierz język:",
+        "dist": "Distanz",
+        "hole": "Loch",
+        "scale": "Skala",
+        "total_score": "### 📊 Gesamtergebnis (Match)",
+        "pts": "Punkte",
+        "arrow_cnt": "Pfeilzähler",
+        "eff": "Trefferquote",
+        "warmup": "Probepfeile / Aufwärmen:",
+        "add_6": "➕ 6 Pfeile",
+        "add_1": "➕ 1 Pfeil",
+        "undo": "➖ Rückgängig",
+        "finish": "Schießen beenden (Bald Google Sheets)",
+        "sum_10_x": "Summe 10+X:",
+        "only_x": "Nur X:",
+        "round_fin": "✅ Runde 1 (Beendet - zum Aufklappen klicken)"
+    }
+}
+
+# --- FUNKCJE USTAWIEŃ I ZAPISU ---
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                return json.load(f).get("lang", "PL")
+        except: pass
+    return "PL"
+
+def save_settings():
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump({"lang": st.session_state.lang_sel}, f)
+    st.session_state.lang = st.session_state.lang_sel
+
+if 'lang' not in st.session_state:
+    st.session_state.lang = load_settings()
+
+lang = st.session_state.lang
 
 # --- SYSTEM AUTO-SAVE (CZARNA SKRZYNKA) ---
 def save_backup():
-    """Zapisuje cały obecny stan treningu do pliku"""
     if st.session_state.get('started'):
         backup_data = {
             "started": True,
@@ -25,7 +99,6 @@ def save_backup():
             json.dump(backup_data, f)
 
 def load_backup():
-    """Wczytuje trening, jeśli aplikacja się zresetowała przez uśpienie telefonu"""
     if os.path.exists(AUTOSAVE_FILE):
         try:
             with open(AUTOSAVE_FILE, "r") as f:
@@ -38,23 +111,22 @@ def load_backup():
                     st.session_state.max_arrows_per_round = data.get("max_arrows_per_round", 36)
                     st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
                     return True
-        except:
-            pass
+        except: pass
     return False
 
 def clear_backup():
-    """Usuwa plik zapisu po oficjalnym zakończeniu treningu"""
     if os.path.exists(AUTOSAVE_FILE):
         os.remove(AUTOSAVE_FILE)
 
-# Próbujemy wczytać kopię zapasową na samym starcie (jeśli sesja jest czysta)
+# --- INICJALIZACJA ZMIENNYCH ---
+dystanse_lista = ["18m", "30m", "70m"]
+
 if 'started' not in st.session_state:
     if not load_backup():
         st.session_state.started = False
         st.session_state.scores = []
         st.session_state.extra_arrows = 0
 
-# Domyślne wartości celownika (Zapisane na twardo)
 if f"dz_{dystanse_lista[0]}" not in st.session_state:
     st.session_state[f"dz_{dystanse_lista[0]}"] = "11"  
     st.session_state[f"sk_{dystanse_lista[0]}"] = "0.7" 
@@ -66,21 +138,25 @@ if f"dz_{dystanse_lista[0]}" not in st.session_state:
 def add_score(val):
     if len(st.session_state.scores) < st.session_state.max_total_arrows:
         st.session_state.scores.append(val)
-        save_backup() # AUTOZAPIS po strzale
+        save_backup()
 
 def undo_score():
     if len(st.session_state.scores) > 0:
         st.session_state.scores.pop()
-        save_backup() # AUTOZAPIS po cofnięciu
+        save_backup()
 
 def add_extra_arrows(val):
     if st.session_state.extra_arrows + val >= 0:
         st.session_state.extra_arrows += val
-        save_backup() # AUTOZAPIS po próbnej strzale
+        save_backup()
 
 def reset():
-    clear_backup() # Kasujemy plik autozapisu
-    st.session_state.clear() # Czyścimy pamięć
+    clear_backup()
+    st.session_state.started = False
+    st.session_state.scores = []
+    st.session_state.extra_arrows = 0
+    if 'radio_input' in st.session_state:
+        del st.session_state['radio_input']
 
 def handle_radio_click():
     if 'radio_input' in st.session_state:
@@ -94,21 +170,21 @@ def handle_radio_click():
 # --- EKRAN STARTOWY ---
 if not st.session_state.started:
     
-    st.markdown("""
+    st.markdown(f"""
     <div style='background-color: #2E8B57; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
-        <h2 style='color: white; margin: 0; font-size: 26px; font-weight: bold;'>🏹 Karta Punktowa</h2>
+        <h2 style='color: white; margin: 0; font-size: 26px; font-weight: bold;'>{T[lang]["title"]}</h2>
     </div>
     """, unsafe_allow_html=True)
     
-    event_type = st.radio("typ_wydarzenia", ["Trening", "Turniej"], horizontal=True, label_visibility="collapsed")
+    event_type = st.radio("typ_wydarzenia", [T[lang]["training"], T[lang]["tournament"]], horizontal=True, label_visibility="collapsed")
     
     event_name = "-"
-    if event_type == "Turniej":
-        event_name = st.text_input("Nazwa turnieju:", placeholder="np. Mistrzostwa Klubu")
+    if event_type == T[lang]["tournament"]:
+        event_name = st.text_input(T[lang]["event_name"], placeholder=T[lang]["event_name_ph"])
         
     st.write("") 
     
-    st.write("🎯 **Wybierz dystans:**")
+    st.write(T[lang]["choose_dist"])
     dystans = st.radio("Dystans", dystanse_lista, horizontal=True, label_visibility="collapsed")
 
     arrows_per_end = 6
@@ -125,7 +201,7 @@ if not st.session_state.started:
 
     st.write("")
     
-    if st.button("🚀 ROZPOCZNIJ STRZELANIE", type="primary", use_container_width=True):
+    if st.button(T[lang]["start_btn"], type="primary", use_container_width=True):
         base_info["CelownikDziurka"] = st.session_state[f"dz_{dystans}"].strip() if st.session_state[f"dz_{dystans}"].strip() else "-"
         base_info["CelownikSkala"] = st.session_state[f"sk_{dystans}"].strip() if st.session_state[f"sk_{dystans}"].strip() else "-"
         
@@ -133,16 +209,23 @@ if not st.session_state.started:
         st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
         st.session_state.max_total_arrows = st.session_state.max_arrows_per_round * 2
         st.session_state.started = True
-        save_backup() # Tworzymy czarną skrzynkę na start!
+        save_backup()
         st.rerun()
 
     st.divider()
 
-    with st.expander("⚙️ Ustawienia wizjera (Zmieniaj rzadko)", expanded=False):
+    with st.expander(T[lang]["settings_exp"], expanded=False):
+        # Wybór języka
+        st.write(f"**{T[lang]['lang_label']}**")
+        st.radio("Język", ["PL", "DE"], index=0 if lang=="PL" else 1, horizontal=True, key="lang_sel", on_change=save_settings, label_visibility="collapsed")
+        
+        st.write("")
+        st.write(f"**{T[lang]['settings_exp'].split('(')[0]}**")
+        
         c1, c2, c3 = st.columns([2, 1, 1])
-        c1.markdown("<span style='font-size:12px; color:gray;'>Dystans</span>", unsafe_allow_html=True)
-        c2.markdown("<span style='font-size:12px; color:gray;'>Dziurka</span>", unsafe_allow_html=True)
-        c3.markdown("<span style='font-size:12px; color:gray;'>Skala</span>", unsafe_allow_html=True)
+        c1.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['dist']}</span>", unsafe_allow_html=True)
+        c2.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['hole']}</span>", unsafe_allow_html=True)
+        c3.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['scale']}</span>", unsafe_allow_html=True)
         
         for d in dystanse_lista:
             c1, c2, c3 = st.columns([2, 1, 1])
@@ -209,7 +292,7 @@ else:
         r_percent = (r_points / r_max_current * 100) if r_max_current > 0 else 0
         
         html = f"<div style='margin-bottom: 20px; font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
-        html += f"<div style='display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;'><b>Runda {round_num}</b><span style='font-weight: bold;'>{info['Dystans']}</span></div>"
+        html += f"<div style='display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;'><b>Runde {round_num}</b><span style='font-weight: bold;'>{info['Dystans']}</span></div>"
         html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black;'>"
         html += f"<tr style='background-color: #f2f2f2; color: #000000; border-bottom: 1px solid black;'><th rowspan='2' style='border: 1px solid black; border-right: 2px solid black; padding: 2px; width: 30px;'></th><th colspan='{arrows_per_end}' style='border: 1px solid black; padding: 2px; font-size: 14px;'>Pfeile</th><th colspan='2' style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 14px;'>Summen</th></tr>"
         html += f"<tr style='background-color: #f2f2f2; color: #000000; border-bottom: 2px solid black;'>"
@@ -217,7 +300,7 @@ else:
         for arr in range(1, arrows_per_end + 1):
             html += f"<th style='border: 1px solid black; padding: 2px; width: 30px; font-size: 12px;'>{arr}</th>"
             
-        html += f"<th style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 12px;'>Seria</th><th style='border: 1px solid black; padding: 2px; font-size: 12px;'>Übertrag</th></tr>"
+        html += f"<th style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 12px;'>Serie</th><th style='border: 1px solid black; padding: 2px; font-size: 12px;'>Übertrag</th></tr>"
         
         cumul_total = cumulative_start
         expected_ends = info['SeriiWRundzie']
@@ -256,7 +339,7 @@ else:
         html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td>"
         html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td>"
         html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>9er:<br><b style='font-size: 14px;'>{r_9s}</b></td>"
-        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; background-color: #f0f8ff;'>Skuteczność:<br><b style='font-size: 14px;'>{r_percent:.1f}%</b></td>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; background-color: #f0f8ff;'>%:<br><b style='font-size: 14px;'>{r_percent:.1f}%</b></td>"
         html += f"</tr></table></div>"
         
         return html, cumul_total
@@ -270,7 +353,7 @@ else:
             st.markdown(html1, unsafe_allow_html=True)
     else:
         html1, cumul1 = render_round_html(1, round1_scores, 0)
-        with st.expander("✅ Runda 1 (Zakończona - kliknij, aby rozwinąć)", expanded=False):
+        with st.expander(T[lang]["round_fin"], expanded=False):
             st.markdown(html1, unsafe_allow_html=True)
         
         html2, _ = render_round_html(2, round2_scores, cumul1)
@@ -280,21 +363,26 @@ else:
     total_points = sum(get_num(s) for s in scores)
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
     total_arrows_shot = len(scores) + st.session_state.extra_arrows
+    count_x = scores.count("X")
+    count_10 = scores.count("10")
     
-    st.markdown("### 📊 Wynik Całkowity (Mecz)")
+    st.markdown(T[lang]["total_score"])
     col_s1, col_s2, col_s3 = st.columns(3)
-    col_s1.metric("Punkty", f"{total_points} / {max_total_score}")
-    col_s2.metric("Licznik strzał", f"{total_arrows_shot}")
-    col_s3.metric("Skuteczność", f"{percent:.1f}%")
+    col_s1.metric(T[lang]["pts"], f"{total_points} / {max_total_score}")
+    col_s2.metric(T[lang]["arrow_cnt"], f"{total_arrows_shot}")
+    col_s3.metric(T[lang]["eff"], f"{percent:.1f}%")
     
-    st.markdown("<span style='font-size:14px; color:gray;'>Strzały próbne / rozgrzewka:</span>", unsafe_allow_html=True)
+    st.write(f"**{T[lang]['sum_10_x']}** {count_10 + count_x} &nbsp;&nbsp;|&nbsp;&nbsp; **{T[lang]['only_x']}** {count_x}")
+    st.write("")
+    
+    st.markdown(f"<span style='font-size:14px; color:gray;'>{T[lang]['warmup']}</span>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
-    c1.button("➕ 6 strzał", on_click=add_extra_arrows, args=(6,), use_container_width=True)
-    c2.button("➕ 1 strzała", on_click=add_extra_arrows, args=(1,), use_container_width=True)
-    c3.button("➖ Cofnij", on_click=add_extra_arrows, args=(-1,), use_container_width=True)
+    c1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
+    c2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,), use_container_width=True)
+    c3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
 
     st.write("")
 
-    if st.button("Zakończ strzelanie (Wkrótce Google Sheets)", type="primary", use_container_width=True):
+    if st.button(T[lang]["finish"], type="primary", use_container_width=True):
         reset()
         st.rerun()
