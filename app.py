@@ -1,49 +1,86 @@
 import streamlit as st
+import json
+import os
 from datetime import date
 
 st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- LISTA DYSTANSÓW ---
 dystanse_lista = ["18m", "30m", "70m"]
+AUTOSAVE_FILE = "autosave.json"
 
-# --- INICJALIZACJA ZMIENNYCH ---
+# --- SYSTEM AUTO-SAVE (CZARNA SKRZYNKA) ---
+def save_backup():
+    """Zapisuje cały obecny stan treningu do pliku"""
+    if st.session_state.get('started'):
+        backup_data = {
+            "started": True,
+            "scores": st.session_state.scores,
+            "extra_arrows": st.session_state.extra_arrows,
+            "event_info": st.session_state.event_info,
+            "max_arrows_per_round": st.session_state.max_arrows_per_round,
+            "max_total_arrows": st.session_state.max_total_arrows
+        }
+        with open(AUTOSAVE_FILE, "w") as f:
+            json.dump(backup_data, f)
+
+def load_backup():
+    """Wczytuje trening, jeśli aplikacja się zresetowała przez uśpienie telefonu"""
+    if os.path.exists(AUTOSAVE_FILE):
+        try:
+            with open(AUTOSAVE_FILE, "r") as f:
+                data = json.load(f)
+                if data.get("started"):
+                    st.session_state.started = True
+                    st.session_state.scores = data.get("scores", [])
+                    st.session_state.extra_arrows = data.get("extra_arrows", 0)
+                    st.session_state.event_info = data.get("event_info", {})
+                    st.session_state.max_arrows_per_round = data.get("max_arrows_per_round", 36)
+                    st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
+                    return True
+        except:
+            pass
+    return False
+
+def clear_backup():
+    """Usuwa plik zapisu po oficjalnym zakończeniu treningu"""
+    if os.path.exists(AUTOSAVE_FILE):
+        os.remove(AUTOSAVE_FILE)
+
+# Próbujemy wczytać kopię zapasową na samym starcie (jeśli sesja jest czysta)
 if 'started' not in st.session_state:
-    st.session_state.started = False
-if 'scores' not in st.session_state:
-    st.session_state.scores = []
-if 'extra_arrows' not in st.session_state:
-    st.session_state.extra_arrows = 0 # Nowa zmienna na strzały próbne!
+    if not load_backup():
+        st.session_state.started = False
+        st.session_state.scores = []
+        st.session_state.extra_arrows = 0
 
-# Domyślne wartości celownika
+# Domyślne wartości celownika (Zapisane na twardo)
 if f"dz_{dystanse_lista[0]}" not in st.session_state:
     st.session_state[f"dz_{dystanse_lista[0]}"] = "11"  
     st.session_state[f"sk_{dystanse_lista[0]}"] = "0.7" 
-    
     st.session_state[f"dz_{dystanse_lista[1]}"] = ""    
     st.session_state[f"sk_{dystanse_lista[1]}"] = ""    
-    
     st.session_state[f"dz_{dystanse_lista[2]}"] = "11"  
     st.session_state[f"sk_{dystanse_lista[2]}"] = "8"   
 
 def add_score(val):
     if len(st.session_state.scores) < st.session_state.max_total_arrows:
         st.session_state.scores.append(val)
+        save_backup() # AUTOZAPIS po strzale
 
 def undo_score():
     if len(st.session_state.scores) > 0:
         st.session_state.scores.pop()
+        save_backup() # AUTOZAPIS po cofnięciu
 
 def add_extra_arrows(val):
-    # Zapobiega spadnięciu poniżej zera przy cofaniu
     if st.session_state.extra_arrows + val >= 0:
         st.session_state.extra_arrows += val
+        save_backup() # AUTOZAPIS po próbnej strzale
 
 def reset():
-    st.session_state.started = False
-    st.session_state.scores = []
-    st.session_state.extra_arrows = 0 # Czyścimy też próbne strzały
-    if 'radio_input' in st.session_state:
-        del st.session_state['radio_input']
+    clear_backup() # Kasujemy plik autozapisu
+    st.session_state.clear() # Czyścimy pamięć
 
 def handle_radio_click():
     if 'radio_input' in st.session_state:
@@ -96,6 +133,7 @@ if not st.session_state.started:
         st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
         st.session_state.max_total_arrows = st.session_state.max_arrows_per_round * 2
         st.session_state.started = True
+        save_backup() # Tworzymy czarną skrzynkę na start!
         st.rerun()
 
     st.divider()
@@ -114,14 +152,11 @@ if not st.session_state.started:
 
 # --- EKRAN TARCZY (PUNKTACJA) ---
 else:
-    # --- CSS: MAKSYMALNA KOMPRESJA I KOLORY DLA RADIO BUTTONÓW ---
     st.markdown("""
     <style>
         div[data-testid="stRadio"] { margin-bottom: -20px !important; }
         div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; justify-content: center !important; }
         div[role="radiogroup"] label p { font-size: 18px !important; font-weight: 900 !important; padding: 0 !important; }
-        
-        /* Kolory */
         div[role="radiogroup"] label:nth-child(1) p, div[role="radiogroup"] label:nth-child(2) p, div[role="radiogroup"] label:nth-child(3) p { color: #D4AC0D !important; }
         div[role="radiogroup"] label:nth-child(4) p, div[role="radiogroup"] label:nth-child(5) p { color: #E53935 !important; }
         div[role="radiogroup"] label:nth-child(6) p, div[role="radiogroup"] label:nth-child(7) p { color: #1E88E5 !important; }
@@ -217,7 +252,6 @@ else:
             
         html += f"<tr style='border-top: 2px solid black; background-color: #f9f9f9; color: #000;'><td colspan='{arrows_per_end + 1}' style='text-align: right; padding: 5px; font-weight: bold; border: 1px solid black; border-right: 2px solid black;'>Summe:</td><td colspan='2' style='border: 2px solid black; font-weight: bold; font-size: 16px; padding: 5px;'>{r_points}</td></tr></table>"
         
-        # --- ZAKTUALIZOWANA STOPKA (Xer, 10er, 9er, Skuteczność) ---
         html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none; color: #000;'><tr>"
         html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td>"
         html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td>"
@@ -253,7 +287,6 @@ else:
     col_s2.metric("Licznik strzał", f"{total_arrows_shot}")
     col_s3.metric("Skuteczność", f"{percent:.1f}%")
     
-    # Przyciski do strzał próbnych
     st.markdown("<span style='font-size:14px; color:gray;'>Strzały próbne / rozgrzewka:</span>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     c1.button("➕ 6 strzał", on_click=add_extra_arrows, args=(6,), use_container_width=True)
