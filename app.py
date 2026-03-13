@@ -11,7 +11,10 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- PAMIĘTAJ O SWOIM LINKU!
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Pamiętaj o swoim linku!
+
+# TARCZA ANTY-BOTOWA! Tylko osoby znające ten kod mogą założyć nowe konto.
+KOD_KLUBU = "SFT" # <-- ZMIEŃ NA WŁASNE HASŁO KLUBU!
 
 # --- PLIKI ZAPISU ---
 AUTOSAVE_FILE = "autosave.json"
@@ -51,6 +54,7 @@ T = {
         "stat_metric": "Pokaż na wykresie:",
         "visier": "🔭 Celownik (Visier)",
         "choose_dist_settings": "Zaznacz widoczne dystanse na torze:",
+        "scale": "Skala (Fein)",
         "bow_setup": "🏹 Łuk (Bogen-Setup)",
         "draw_weight": "Siła (Zuggewicht) [lbs]",
         "brace_height": "Wys. cięciwy (Standhöhe) [cm/in]",
@@ -93,6 +97,7 @@ T = {
         "stat_metric": "Zeige im Diagramm:",
         "visier": "🔭 Visier",
         "choose_dist_settings": "Sichtbare Distanzen markieren:",
+        "scale": "Feineinstellung",
         "bow_setup": "🏹 Bogen-Setup",
         "draw_weight": "Zuggewicht [lbs]",
         "brace_height": "Standhöhe [cm/in]",
@@ -283,10 +288,15 @@ if not st.session_state.zalogowany_zawodnik:
         nowy_zawodnik = st.text_input("Twoje Imię / Pseudonim:", key="rej_nazwa")
         nowy_pin = st.text_input("Wymyśl 4-cyfrowy PIN:", type="password", key="rej_pin")
         
+        # NOWOŚĆ: Zabezpieczenie anty-botowe
+        podany_kod_klubu = st.text_input("Tajny Kod Klubu (zapytaj trenera/admina):", type="password", key="rej_kod")
+        
         st.write("")
         if st.button("Stwórz konto", type="primary", use_container_width=True):
             czysta_nowa_nazwa = nowy_zawodnik.strip()
-            if not czysta_nowa_nazwa: st.warning("Imię nie może być puste!")
+            if podany_kod_klubu != KOD_KLUBU:
+                st.error("❌ Błędny Kod Klubu! Ochrona przed botami aktywna.")
+            elif not czysta_nowa_nazwa: st.warning("Imię nie może być puste!")
             elif czysta_nowa_nazwa in konta: st.warning("Taki zawodnik już istnieje!")
             elif len(nowy_pin) < 4: st.warning("PIN musi mieć co najmniej 4 znaki!")
             else:
@@ -339,8 +349,8 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
             dane_treningu["Data"], now.strftime("%H:%M:%S"), dane_treningu["Typ"], dane_treningu["Nazwa"],
             dane_treningu["Dystans"], statystyki["Punkty"], statystyki["Max"], f"{statystyki['Skuteczność']:.1f}%",
             statystyki["Strzały"], statystyki["10_i_X"], statystyki["X"],
-            "-", # Puste, relikt po starej Dziurce
-            dane_treningu["CelownikSkala"], # Tutaj ładujemy połączony zapis Aus/Hoehe/Seite
+            "-", 
+            dane_treningu["CelownikSkala"],
             statystyki["10"], statystyki["9"], statystyki["M"]
         ]
         worksheet.append_row(wiersz)
@@ -444,7 +454,6 @@ with tab_karta:
 
         st.write("")
         if st.button(T[lang]["start_btn"], type="primary", use_container_width=True):
-            # Składamy 3 ustawienia w jeden ciąg, żeby elegancko wysyłał się do bazy jako wizjer
             czesci = []
             if st.session_state[f'aus_{dystans}']: czesci.append(f"A:{st.session_state[f'aus_{dystans}']}")
             if st.session_state[f'hoehe_{dystans}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans}']}")
@@ -491,7 +500,6 @@ with tab_karta:
             c_vis3.markdown(f"<span style='font-size:12px; color:gray;'>Höhe</span>", unsafe_allow_html=True)
             c_vis4.markdown(f"<span style='font-size:12px; color:gray;'>Seite</span>", unsafe_allow_html=True)
             
-            # WIDOK GHOST TEXT (PLACEHOLDER)
             for d in dystanse_lista:
                 c1, c2, c3, c4 = st.columns([0.8, 1, 1, 1])
                 c1.checkbox(d, value=(d in st.session_state.aktywne_dystanse), key=f"chk_{d}", on_change=zmiana_dystansow)
@@ -506,7 +514,6 @@ with tab_karta:
             
             st.write("")
             if st.button("💾 Zapisz profil w chmurze", use_container_width=True):
-                # POBIERAMY NOWE LUB ZACHOWUJEMY STARE (GHOST)
                 dane_sprzetu = {
                     "zuggewicht": st.session_state["zuggewicht"], "standhoehe": st.session_state["standhoehe"],
                     "tiller": st.session_state["tiller"], "nockpunkt": st.session_state["nockpunkt"],
@@ -532,7 +539,6 @@ with tab_karta:
                     st.rerun()
                 else: st.error("❌ Błąd połączenia z Arkuszem.")
             
-            # --- POBIERANIE RAPORTU SPRZĘTU (Z TŁUMACZENIEM DE/PL) ---
             st.write("")
             if lang == "DE":
                 raport_txt = f"🏹 AUSRÜSTUNGSPROFIL: {st.session_state.zalogowany_zawodnik}\n"
@@ -781,11 +787,10 @@ with tab_staty:
             wykres = (slupki + teksty).properties(width=szerokosc_wykresu, height=350)
             st.altair_chart(wykres, use_container_width=False)
 
-            # --- NOWOŚĆ: CZYSZCZENIE PLIKU CSV I TŁUMACZENIE ---
+            # --- CZYSZCZENIE PLIKU CSV I TŁUMACZENIE ---
             st.write("")
             df_export = df_filtrowane.copy()
             
-            # Miotła - wyrzucamy z CSV absolutnie wszystkie techniczne brudy!
             kolumny_do_usuniecia = ["Wizjer Dziurka", "Wizjer Skala", "Zawodnik", "Sesja", "Wydarzenie"]
             df_export.drop(columns=[k for k in kolumny_do_usuniecia if k in df_export.columns], inplace=True)
                 
