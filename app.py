@@ -11,7 +11,7 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- ZMIEŃ NA SWÓJ LINK
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- ZMIEŃ NA SWÓJ LINK!
 
 # --- PLIKI ZAPISU ---
 AUTOSAVE_FILE = "autosave.json"
@@ -49,6 +49,7 @@ T = {
         "stat_no_data": "Brak danych dla tego dystansu. Idź postrzelać! 🏹",
         "stat_metric": "Pokaż na wykresie:",
         "visier": "🔭 Celownik (Visier)",
+        "choose_dist_settings": "Zaznacz widoczne dystanse na torze:",
         "hole": "Dziurka (Raster)",
         "scale": "Skala (Fein)",
         "bow_setup": "🏹 Łuk (Bogen-Setup)",
@@ -89,6 +90,7 @@ T = {
         "stat_no_data": "Keine Daten für diese Distanz. Geh schießen! 🏹",
         "stat_metric": "Zeige im Diagramm:",
         "visier": "🔭 Visier",
+        "choose_dist_settings": "Sichtbare Distanzen markieren:",
         "hole": "Raster (Loch)",
         "scale": "Feineinstellung",
         "bow_setup": "🏹 Bogen-Setup",
@@ -108,25 +110,29 @@ T = {
 def load_settings():
     lang = "PL"
     zawodnik = None
+    aktywne_dystanse = ["18m", "30m", "70m"] # Domyślny, czysty widok!
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
                 data = json.load(f)
                 lang = data.get("lang", "PL")
                 zawodnik = data.get("zalogowany_zawodnik")
+                aktywne_dystanse = data.get("aktywne_dystanse", ["18m", "30m", "70m"])
         except: pass
-    return lang, zawodnik
+    return lang, zawodnik, aktywne_dystanse
 
 def save_settings():
     with open(SETTINGS_FILE, "w") as f:
         json.dump({
             "lang": st.session_state.lang, 
-            "zalogowany_zawodnik": st.session_state.zalogowany_zawodnik
+            "zalogowany_zawodnik": st.session_state.zalogowany_zawodnik,
+            "aktywne_dystanse": st.session_state.aktywne_dystanse
         }, f)
 
-start_lang, start_zawodnik = load_settings()
+start_lang, start_zawodnik, start_dystanse = load_settings()
 if 'lang' not in st.session_state: st.session_state.lang = start_lang
 if 'zalogowany_zawodnik' not in st.session_state: st.session_state.zalogowany_zawodnik = start_zawodnik
+if 'aktywne_dystanse' not in st.session_state: st.session_state.aktywne_dystanse = start_dystanse
 
 lang = st.session_state.lang
 
@@ -134,6 +140,12 @@ def wyloguj():
     st.session_state.zalogowany_zawodnik = None
     save_settings()
     st.rerun()
+
+def zmiana_dystansow():
+    nowe_aktywne = [d for d in dystanse_lista if st.session_state.get(f"chk_{d}", False)]
+    if not nowe_aktywne: nowe_aktywne = ["18m"] # Blokada przed odznaczeniem wszystkich
+    st.session_state.aktywne_dystanse = nowe_aktywne
+    save_settings()
 
 # --- FUNKCJE BAZY UŻYTKOWNIKÓW I PROFILU SPRZĘTU ---
 @st.cache_data(ttl=30)
@@ -202,7 +214,6 @@ def zapisz_profil_sprzetu(zawodnik, dane):
         ws.append_row(wiersz)
         return True
     except Exception as e:
-        print(e)
         return False
 
 # --- EKRAN LOGOWANIA / REJESTRACJI ---
@@ -233,7 +244,6 @@ if not st.session_state.zalogowany_zawodnik:
                     st.session_state.zalogowany_zawodnik = czysta_nazwa
                     save_settings() 
                     
-                    # WGRYWANIE PROFILU SPRZĘTU
                     zapisane_dane = pobierz_profil_sprzetu(czysta_nazwa)
                     if zapisane_dane:
                         for d in dystanse_lista:
@@ -275,7 +285,7 @@ if not st.session_state.zalogowany_zawodnik:
                 else: st.error("❌ Błąd przy zakładaniu konta.")
     st.stop() 
 
-# --- INICJALIZACJA ZMIENNYCH SPRZĘTU (ZAPOBIEGA BŁĘDOM) ---
+# --- INICJALIZACJA ZMIENNYCH SPRZĘTU ---
 zmienne_sprzet = ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]
 for d in dystanse_lista:
     if f"dz_{d}" not in st.session_state: st.session_state[f"dz_{d}"] = ""
@@ -416,8 +426,8 @@ with tab_karta:
         st.write("") 
         st.write(T[lang]["choose_dist"])
         
-        # Wykorzystujemy nową, pełną listę dystansów!
-        dystans = st.selectbox("Dystans", dystanse_lista, label_visibility="collapsed")
+        # ZWRÓCONE PIĘKNE RADIO BUTTONY DLA DYSTANSÓW, ALE TYLKO Z TYMI ZAZNACZONYMI W USTAWIENIACH!
+        dystans = st.radio("Dystans", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
 
         arrows_per_end = 6
         ends_per_round = 6
@@ -469,16 +479,19 @@ with tab_karta:
             
             # --- 3. WIZJER ---
             st.markdown(f"#### {T[lang]['visier']}")
-            c_vis1, c_vis2, c_vis3 = st.columns([1.5, 1, 1])
+            st.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['choose_dist_settings']}</span>", unsafe_allow_html=True)
+            
+            c_vis1, c_vis2, c_vis3 = st.columns([1.2, 1, 1])
             c_vis1.markdown(f"<span style='font-size:12px; color:gray;'>Dystans</span>", unsafe_allow_html=True)
             c_vis2.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['hole']}</span>", unsafe_allow_html=True)
             c_vis3.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['scale']}</span>", unsafe_allow_html=True)
             
+            # NOWOŚĆ: CHECKBOXY STERUJĄCE WIDOCZNOŚCIĄ NA EKRANIE GŁÓWNYM!
             for d in dystanse_lista:
-                c1, c2, c3 = st.columns([1.5, 1, 1])
-                c1.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{d}</div>", unsafe_allow_html=True)
-                st.text_input(f"Dz {d}", key=f"dz_{d}", label_visibility="collapsed")
-                st.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
+                c1, c2, c3 = st.columns([1.2, 1, 1])
+                c1.checkbox(d, value=(d in st.session_state.aktywne_dystanse), key=f"chk_{d}", on_change=zmiana_dystansow)
+                c2.text_input(f"Dz {d}", key=f"dz_{d}", label_visibility="collapsed")
+                c3.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
             
             st.write("")
             if st.button("💾 Zapisz profil w chmurze", use_container_width=True):
@@ -640,7 +653,8 @@ with tab_staty:
         st.info("Brak połączonego arkusza lub arkusz jest pusty." if lang=="PL" else "Keine Daten oder Sheet ist leer.")
     else:
         st.write(f"**{T[lang]['choose_dist']}**")
-        wybrany_dystans = st.selectbox("Dystans stat", dystanse_lista, label_visibility="collapsed")
+        # Radio buttony statystyk też podążają za Twoim wyborem z Ustawień!
+        wybrany_dystans = st.radio("Dystans stat", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
         df_filtrowane = df[df["Dystans"] == wybrany_dystans]
         
         if df_filtrowane.empty: st.warning(T[lang]["stat_no_data"])
