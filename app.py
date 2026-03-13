@@ -524,32 +524,34 @@ with tab_staty:
             zakres_kolorow = ['#2E8B57', '#1E88E5', '#2E8B57', '#1E88E5']
             kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
             
-            # 1. TWORZENIE BAZY WYKRESU (Oś X)
+            # INTELIGENTNA SKALA Y (Rozwiązuje ucięte liczby!)
+            max_wartosc = df_filtrowane[kolumna_y].max()
+            if kolumna_y == "Punkty":
+                skala_y = alt.Scale(domain=(0, 720)) # Sztywna skala do 720 dla punktów
+            else:
+                skala_y = alt.Scale(domain=(0, max_wartosc * 1.25 if max_wartosc > 0 else 10)) # +25% wolnego miejsca od góry dla innych metryk
+            
             baza = alt.Chart(df_filtrowane).encode(
                 x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
             )
             
-            # 2. TWORZENIE SŁUPKÓW
             slupki = baza.mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-                y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz),
+                y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz, scale=skala_y), # Użycie naszej nowej skali
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
                 tooltip=['Data', 'Czas', 'Nazwa', 'Punkty', 'Same X', '10', '9', 'M', 'Strzały (Suma)']
             )
             
-            # 3. TWORZENIE TEKSTÓW (Wymuszony rozmiar i wyłączone obcinanie dla telefonów!)
             teksty = baza.mark_text(
                 align='center',
                 baseline='bottom',
                 dy=-5, 
                 fontWeight='bold',
-                fontSize=12,   # Optymalny rozmiar na telefon
-                clip=False     # NIE ZNIKAJ na krawędzi ekranu!
+                fontSize=13 # Optymalny rozmiar
             ).encode(
                 y=alt.Y(f'{kolumna_y}:Q'),
                 text=alt.Text(f'{kolumna_y}:Q') 
             )
             
-            # 4. SKŁADANIE WYKRESU
             wykres = (slupki + teksty).properties(height=350)
             
             st.altair_chart(wykres, use_container_width=True)
