@@ -15,7 +15,7 @@ ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- Wpisz tu prawdzi
 
 # Baza zawodników (Zmień imiona i PIN-y)
 ZAWODNICY = {
-    "Adam": "1234",
+    "Rafael": "1234",
     "Tomek": "0000"
 }
 
