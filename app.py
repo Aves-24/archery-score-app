@@ -336,3 +336,116 @@ else:
         r_9s = round_scores.count("9")
         r_max_current = len(round_scores) * 10
         r_percent = (r_points / r_max_current * 100) if r_max_current > 0 else 0
+        
+        html = f"<div style='margin-bottom: 20px; font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
+        html += f"<div style='display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;'><b>Runde {round_num}</b><span style='font-weight: bold;'>{info['Dystans']}</span></div>"
+        html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black;'>"
+        html += f"<tr style='background-color: #f2f2f2; color: #000000; border-bottom: 1px solid black;'><th rowspan='2' style='border: 1px solid black; border-right: 2px solid black; padding: 2px; width: 30px;'></th><th colspan='{arrows_per_end}' style='border: 1px solid black; padding: 2px; font-size: 14px;'>Pfeile</th><th colspan='2' style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 14px;'>Summen</th></tr>"
+        html += f"<tr style='background-color: #f2f2f2; color: #000000; border-bottom: 2px solid black;'>"
+        
+        for arr in range(1, arrows_per_end + 1):
+            html += f"<th style='border: 1px solid black; padding: 2px; width: 30px; font-size: 12px;'>{arr}</th>"
+            
+        html += f"<th style='border: 1px solid black; border-left: 2px solid black; padding: 2px; font-size: 12px;'>Serie</th><th style='border: 1px solid black; padding: 2px; font-size: 12px;'>Übertrag</th></tr>"
+        
+        cumul_total = cumulative_start
+        expected_ends = info['SeriiWRundzie']
+        
+        for end_idx in range(expected_ends):
+            arrow_idx_start = end_idx * arrows_per_end
+            end_scores = round_scores[arrow_idx_start:arrow_idx_start + arrows_per_end]
+            
+            if len(end_scores) > 0:
+                end_sum = sum(get_num(s) for s in end_scores)
+                cumul_total += end_sum
+            else:
+                end_sum = ""
+                
+            arrow_label = (end_idx + 1) * arrows_per_end
+            
+            html += "<tr>"
+            html += f"<td style='border: 1px solid black; border-right: 2px solid black; padding: 4px; font-weight: bold; font-size: 14px;'>{arrow_label}</td>"
+            
+            for j in range(arrows_per_end):
+                if j < len(end_scores):
+                    val = end_scores[j]
+                    style = get_color_style(val)
+                    circle = f"<div style='width: 22px; height: 22px; border-radius: 50%; {style} display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin: 0 auto; border: 1px solid #aaa;'>{val}</div>"
+                    html += f"<td style='border: 1px solid black; padding: 2px;'>{circle}</td>"
+                else:
+                    html += "<td style='padding: 2px; border: 1px solid black;'></td>"
+            
+            html += f"<td style='border: 1px solid black; border-left: 2px solid black; padding: 4px; font-weight: bold;'>{end_sum}</td>"
+            html += f"<td style='border: 1px solid black; padding: 4px; font-weight: bold;'>{cumul_total if len(end_scores)>0 else ''}</td>"
+            html += "</tr>"
+            
+        html += f"<tr style='border-top: 2px solid black; background-color: #f9f9f9; color: #000;'><td colspan='{arrows_per_end + 1}' style='text-align: right; padding: 5px; font-weight: bold; border: 1px solid black; border-right: 2px solid black;'>Summe:</td><td colspan='2' style='border: 2px solid black; font-weight: bold; font-size: 16px; padding: 5px;'>{r_points}</td></tr></table>"
+        
+        html += f"<table style='width: 100%; border-collapse: collapse; text-align: center; border: 2px solid black; border-top: none; color: #000;'><tr>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>Xer:<br><b style='font-size: 14px;'>{r_xs}</b></td>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>10er:<br><b style='font-size: 14px;'>{r_10s}</b></td>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%;'>9er:<br><b style='font-size: 14px;'>{r_9s}</b></td>"
+        html += f"<td style='border: 1px solid black; padding: 4px; font-size: 12px; width: 25%; background-color: #f0f8ff;'>%:<br><b style='font-size: 14px;'>{r_percent:.1f}%</b></td>"
+        html += f"</tr></table></div>"
+        
+        return html, cumul_total
+
+    round1_scores = scores[:st.session_state.max_arrows_per_round]
+    round2_scores = scores[st.session_state.max_arrows_per_round:]
+
+    if len(round2_scores) == 0:
+        if len(round1_scores) > 0 or not st.session_state.started:
+            html1, cumul1 = render_round_html(1, round1_scores, 0)
+            st.markdown(html1, unsafe_allow_html=True)
+    else:
+        html1, cumul1 = render_round_html(1, round1_scores, 0)
+        with st.expander(T[lang]["round_fin"], expanded=False):
+            st.markdown(html1, unsafe_allow_html=True)
+        
+        html2, _ = render_round_html(2, round2_scores, cumul1)
+        st.markdown(html2, unsafe_allow_html=True)
+
+    # --- STATYSTYKI KOŃCOWE ---
+    total_points = sum(get_num(s) for s in scores)
+    percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
+    total_arrows_shot = len(scores) + st.session_state.extra_arrows
+    count_x = scores.count("X")
+    count_10 = scores.count("10")
+    
+    st.markdown(T[lang]["total_score"])
+    col_s1, col_s2, col_s3 = st.columns(3)
+    col_s1.metric(T[lang]["pts"], f"{total_points} / {max_total_score}")
+    col_s2.metric(T[lang]["arrow_cnt"], f"{total_arrows_shot}")
+    col_s3.metric(T[lang]["eff"], f"{percent:.1f}%")
+    
+    st.write(f"**{T[lang]['sum_10_x']}** {count_10 + count_x} &nbsp;&nbsp;|&nbsp;&nbsp; **{T[lang]['only_x']}** {count_x}")
+    st.write("")
+    
+    st.markdown(f"<span style='font-size:14px; color:gray;'>{T[lang]['warmup']}</span>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    c1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
+    c2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,), use_container_width=True)
+    c3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
+
+    st.write("")
+
+    # --- PRZYCISK ZAPISU DO ARKUSZA ---
+    if st.button(T[lang]["finish"], type="primary", use_container_width=True):
+        statystyki_koncowe = {
+            "Punkty": total_points,
+            "Max": max_total_score,
+            "Skuteczność": percent,
+            "Strzały": total_arrows_shot,
+            "10_i_X": count_10 + count_x,
+            "X": count_x
+        }
+        
+        sukces = zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe)
+        
+        if sukces:
+            st.success("✅ Wyniki zostały pomyślnie zapisane w Arkuszu Google!")
+        else:
+            st.error("❌ Błąd zapisu do Arkusza. Sprawdź nazwę pliku i uprawnienia.")
+        
+        reset()
+        st.rerun()
