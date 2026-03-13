@@ -61,7 +61,9 @@ T = {
         "arr_model": "Model (Modell)",
         "arr_spine": "Sztywność (Spine)",
         "arr_len": "Długość (Länge) [in]",
-        "arr_point": "Waga grotu (Spitze) [gr]"
+        "arr_point": "Waga grotu (Spitze) [gr]",
+        "dl_stats_csv": "📥 Pobierz statystyki (CSV)",
+        "dl_equip_txt": "📥 Pobierz profil sprzętu (TXT)"
     },
     "DE": {
         "title": "🏹 Schießzettel",
@@ -102,7 +104,9 @@ T = {
         "arr_model": "Modell",
         "arr_spine": "Spine-Wert",
         "arr_len": "Pfeillänge [in]",
-        "arr_point": "Spitzengewicht [gr]"
+        "arr_point": "Spitzengewicht [gr]",
+        "dl_stats_csv": "📥 Statistiken herunterladen (CSV)",
+        "dl_equip_txt": "📥 Ausrüstungsprofil herunterladen (TXT)"
     }
 }
 
@@ -110,7 +114,7 @@ T = {
 def load_settings():
     lang = "PL"
     zawodnik = None
-    aktywne_dystanse = ["18m", "30m", "70m"] # Domyślny, czysty widok!
+    aktywne_dystanse = ["18m", "30m", "70m"] 
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
@@ -143,7 +147,7 @@ def wyloguj():
 
 def zmiana_dystansow():
     nowe_aktywne = [d for d in dystanse_lista if st.session_state.get(f"chk_{d}", False)]
-    if not nowe_aktywne: nowe_aktywne = ["18m"] # Blokada przed odznaczeniem wszystkich
+    if not nowe_aktywne: nowe_aktywne = ["18m"] 
     st.session_state.aktywne_dystanse = nowe_aktywne
     save_settings()
 
@@ -426,7 +430,6 @@ with tab_karta:
         st.write("") 
         st.write(T[lang]["choose_dist"])
         
-        # ZWRÓCONE PIĘKNE RADIO BUTTONY DLA DYSTANSÓW, ALE TYLKO Z TYMI ZAZNACZONYMI W USTAWIENIACH!
         dystans = st.radio("Dystans", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
 
         arrows_per_end = 6
@@ -451,13 +454,11 @@ with tab_karta:
 
         st.divider()
 
-        # MEGA-PROFIL SPRZĘTOWY (EXPANDER)
         with st.expander(T[lang]["settings_exp"], expanded=False):
             st.write(f"**{T[lang]['lang_label']}**")
             st.radio("Język", ["PL", "DE"], index=0 if lang=="PL" else 1, horizontal=True, key="lang_sel", on_change=zmiana_jezyka, label_visibility="collapsed")
             st.divider()
             
-            # --- 1. ŁUK ---
             st.markdown(f"#### {T[lang]['bow_setup']}")
             c_bow1, c_bow2 = st.columns(2)
             c_bow1.text_input(T[lang]['draw_weight'], key="zuggewicht")
@@ -466,8 +467,6 @@ with tab_karta:
             c_bow2.text_input(T[lang]['nock_point'], key="nockpunkt")
             
             st.write("")
-            
-            # --- 2. STRZAŁY ---
             st.markdown(f"#### {T[lang]['arrows_setup']}")
             c_arr1, c_arr2 = st.columns(2)
             c_arr1.text_input(T[lang]['arr_model'], key="pfeil_modell")
@@ -476,8 +475,6 @@ with tab_karta:
             c_arr2.text_input(T[lang]['arr_point'], key="pfeil_spitze")
             
             st.write("")
-            
-            # --- 3. WIZJER ---
             st.markdown(f"#### {T[lang]['visier']}")
             st.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['choose_dist_settings']}</span>", unsafe_allow_html=True)
             
@@ -486,7 +483,6 @@ with tab_karta:
             c_vis2.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['hole']}</span>", unsafe_allow_html=True)
             c_vis3.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['scale']}</span>", unsafe_allow_html=True)
             
-            # NOWOŚĆ: CHECKBOXY STERUJĄCE WIDOCZNOŚCIĄ NA EKRANIE GŁÓWNYM!
             for d in dystanse_lista:
                 c1, c2, c3 = st.columns([1.2, 1, 1])
                 c1.checkbox(d, value=(d in st.session_state.aktywne_dystanse), key=f"chk_{d}", on_change=zmiana_dystansow)
@@ -509,6 +505,35 @@ with tab_karta:
                     st.success("✅ Zapisano! Będą z Tobą przy każdym logowaniu.")
                 else: st.error("❌ Błąd połączenia z Arkuszem.")
             
+            # --- NOWOŚĆ: POBIERANIE RAPORTU SPRZĘTU (TXT) ---
+            st.write("")
+            raport_txt = f"🏹 PROFIL SPRZĘTU / AUSRÜSTUNGSPROFIL: {st.session_state.zalogowany_zawodnik}\n"
+            raport_txt += f"Data pobrania / Datum: {date.today().strftime('%d.%m.%Y')}\n"
+            raport_txt += f"{'-'*40}\n"
+            raport_txt += f"[ŁUK / BOGEN]\n"
+            raport_txt += f"Siła (Zuggewicht): {st.session_state.get('zuggewicht','')} lbs\n"
+            raport_txt += f"Wys. cięciwy (Standhöhe): {st.session_state.get('standhoehe','')}\n"
+            raport_txt += f"Tiller: {st.session_state.get('tiller','')} mm\n"
+            raport_txt += f"P. siodełka (Nockpunkt): {st.session_state.get('nockpunkt','')} mm\n"
+            raport_txt += f"{'-'*40}\n"
+            raport_txt += f"[STRZAŁY / PFEILE]\n"
+            raport_txt += f"Model: {st.session_state.get('pfeil_modell','')}\n"
+            raport_txt += f"Spine: {st.session_state.get('pfeil_spine','')}\n"
+            raport_txt += f"Długość (Länge): {st.session_state.get('pfeil_laenge','')} in\n"
+            raport_txt += f"Grot (Spitze): {st.session_state.get('pfeil_spitze','')} gr\n"
+            raport_txt += f"{'-'*40}\n"
+            raport_txt += f"[WIZJER / VISIER]\n"
+            for d in st.session_state.aktywne_dystanse:
+                raport_txt += f"[{d}] -> Dziurka: {st.session_state.get(f'dz_{d}','')} | Skala: {st.session_state.get(f'sk_{d}','')}\n"
+                
+            st.download_button(
+                label=T[lang]["dl_equip_txt"],
+                data=raport_txt.encode('utf-8'),
+                file_name=f"Profil_Sprzetowy_{st.session_state.zalogowany_zawodnik}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
             st.write("")
             if st.button("🚪 Wyloguj / Logout", use_container_width=True): wyloguj()
 
@@ -653,7 +678,6 @@ with tab_staty:
         st.info("Brak połączonego arkusza lub arkusz jest pusty." if lang=="PL" else "Keine Daten oder Sheet ist leer.")
     else:
         st.write(f"**{T[lang]['choose_dist']}**")
-        # Radio buttony statystyk też podążają za Twoim wyborem z Ustawień!
         wybrany_dystans = st.radio("Dystans stat", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
         df_filtrowane = df[df["Dystans"] == wybrany_dystans]
         
@@ -710,14 +734,21 @@ with tab_staty:
             wykres = (slupki + teksty).properties(width=szerokosc_wykresu, height=350)
             st.altair_chart(wykres, use_container_width=False)
 
+            # --- NOWOŚĆ: POBIERANIE STATYSTYK (CSV) ---
+            st.write("")
+            csv_data = df_filtrowane.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label=T[lang]["dl_stats_csv"], 
+                data=csv_data, 
+                file_name=f"Statystyki_{st.session_state.zalogowany_zawodnik}_{wybrany_dystans}.csv", 
+                mime='text/csv', 
+                use_container_width=True
+            )
+
 # --- WHATSAPP ---
 st.write("")
 st.divider()
 wiadomosc = f"Hej! 👋 Zobacz naszą nową klubową aplikację do punktacji łuczniczej: {ADRES_APLIKACJI}"
 st.markdown(f"""
     <div style='text-align: center; margin-bottom: 20px;'>
-        <a href="whatsapp://send?text={wiadomosc}" target="_blank" style="text-decoration: none; background-color: #25D366; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            🟢 Udostępnij aplikację przez WhatsApp
-        </a>
-    </div>
-""", unsafe_allow_html=True)
+        <a href="whatsapp://send?text={wiadomosc}" target="_blank" style="text
