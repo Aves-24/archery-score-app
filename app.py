@@ -531,7 +531,7 @@ with tab_staty:
             else:
                 skala_y = alt.Scale(domain=[0, max_wartosc * 1.25 if max_wartosc > 0 else 10], nice=False)
             
-            baza = alt.Chart(df_filtrowane).encode(
+           baza = alt.Chart(df_filtrowane).encode(
                 x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
             )
             
@@ -548,12 +548,19 @@ with tab_staty:
                 dy=-5, 
                 fontWeight='bold',
                 fontSize=12,
-                clip=False # <- To jest ta magiczna komenda!
+                clip=False 
             ).encode(
                 y=alt.Y(f'{kolumna_y}:Q'),
                 text=alt.Text(f'{kolumna_y}:Q') 
             )
             
-            wykres = (slupki + teksty).properties(height=350)
+            # POPRAWKA 3: Dynamiczna szerokość i włączenie przewijania (scroll)
+            szerokosc_wykresu = max(350, len(df_filtrowane) * 45)
             
-            st.altair_chart(wykres, use_container_width=True)
+            wykres = (slupki + teksty).properties(
+                width=szerokosc_wykresu,
+                height=350
+            )
+            
+            # Wyłączamy kompresowanie do ekranu (False zamiast True) - to uaktywnia poziomy pasek przewijania
+            st.altair_chart(wykres, use_container_width=False)
