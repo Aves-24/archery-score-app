@@ -7,10 +7,10 @@ import gspread
 import pandas as pd
 import altair as alt
 
-st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
+st.set_page_config(page_title="SFT Schießzettel", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
-NAZWA_ARKUSZA = "Karta_Punktowa"
+NAZWA_ARKUSZA = "Karta_Punktowa" # Zostawiamy PL, żeby nie zepsuć bazy Google Sheets!
 ADRES_APLIKACJI = "https://sft-schiesszettel.streamlit.app/"
 
 # TARCZA ANTY-BOTOWA! 
@@ -110,7 +110,7 @@ T = {
 }
 
 # --- INICJALIZACJA SESJI ---
-if 'lang' not in st.session_state: st.session_state.lang = "PL"
+if 'lang' not in st.session_state: st.session_state.lang = "DE" # Zmieniono domyślny na DE
 if 'zalogowany_zawodnik' not in st.session_state: st.session_state.zalogowany_zawodnik = None
 if 'aktywne_dystanse' not in st.session_state: st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
 
@@ -135,11 +135,13 @@ def load_user_settings(zawodnik):
             with open(plik, "r") as f:
                 data = json.load(f)
                 st.session_state.aktywne_dystanse = data.get("aktywne_dystanse", ["18m", "30m", "70m"])
-                st.session_state.lang = data.get("lang", "PL")
+                st.session_state.lang = data.get("lang", "DE") # Domyślnie DE
         except:
             st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
+            st.session_state.lang = "DE"
     else:
         st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
+        st.session_state.lang = "DE"
 
 def wyloguj():
     st.session_state.zalogowany_zawodnik = None
@@ -158,7 +160,7 @@ def zmiana_jezyka():
     st.session_state.lang = st.session_state.lang_sel
     save_user_settings()
 
-# --- FUNKCJE BAZY UŻYTKOWNIKÓW I PROFILU SPRZĘTU (Z SYSTEMEM ŚLEDCZYM) ---
+# --- FUNKCJE BAZY UŻYTKOWNIKÓW I PROFILU SPRZĘTU (Z SYSTEMEM ŚLEDCZYM W DE) ---
 @st.cache_data(ttl=30)
 def pobierz_uzytkownikow():
     try:
@@ -174,7 +176,7 @@ def pobierz_uzytkownikow():
         zapisy = ws.get_all_records()
         return {str(r["Zawodnik"]).strip(): str(r["PIN"]).strip().lstrip("'") for r in zapisy}
     except Exception as e:
-        st.error(f"🕵️‍♂️ BŁĄD POBIERANIA KONT: {e}")
+        st.error(f"🕵️‍♂️ FEHLER BEIM LADEN DER KONTEN: {e}")
         return {}
 
 def dodaj_uzytkownika(nazwa, pin):
@@ -188,7 +190,7 @@ def dodaj_uzytkownika(nazwa, pin):
         st.cache_data.clear() 
         return True
     except Exception as e:
-        st.error(f"🕵️‍♂️ BŁĄD DODAWANIA KONTA: {e}")
+        st.error(f"🕵️‍♂️ FEHLER BEIM ERSTELLEN DES KONTOS: {e}")
         return False
 
 def pobierz_profil_sprzetu(zawodnik):
@@ -207,7 +209,7 @@ def pobierz_profil_sprzetu(zawodnik):
             return df_zawodnik.iloc[-1].to_dict()
         return None
     except Exception as e:
-        st.error(f"🕵️‍♂️ BŁĄD POBIERANIA SPRZĘTU: {e}")
+        st.error(f"🕵️‍♂️ FEHLER BEIM LADEN DER AUSRÜSTUNG: {e}")
         return None
 
 def zapisz_profil_sprzetu(zawodnik, dane):
@@ -231,7 +233,7 @@ def zapisz_profil_sprzetu(zawodnik, dane):
         ws.append_row(wiersz)
         return True
     except Exception as e:
-        st.error(f"🕵️‍♂️ BŁĄD ZAPISU SPRZĘTU: {e}")
+        st.error(f"🕵️‍♂️ FEHLER BEIM SPEICHERN DER AUSRÜSTUNG: {e}")
         return False
 
 # --- OSOBISTY SYSTEM AUTO-SAVE ---
@@ -276,28 +278,28 @@ for d in dystanse_lista:
 for z in zmienne_sprzet:
     if z not in st.session_state: st.session_state[z] = ""
 
-# --- EKRAN LOGOWANIA / REJESTRACJI ---
+# --- EKRAN LOGOWANIA / REJESTRACJI (W PEŁNI PO NIEMIECKU) ---
 if not st.session_state.zalogowany_zawodnik:
     st.markdown(f"""
     <div style='background-color: #2E8B57; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center;'>
-        <h2 style='color: white; margin: 0;'>🏹 Profil Łucznika</h2>
+        <h2 style='color: white; margin: 0;'>🏹 Schützenprofil</h2>
     </div>
     """, unsafe_allow_html=True)
     
     konta = pobierz_uzytkownikow()
-    tab_log, tab_rej = st.tabs(["🔐 Zaloguj się", "📝 Stwórz konto"])
+    tab_log, tab_rej = st.tabs(["🔐 Einloggen", "📝 Konto erstellen"])
     
     with tab_log:
-        st.write("Wpisz swoje dane, aby wejść na tor.")
-        podana_nazwa = st.text_input("Twoje Imię / Pseudonim:", key="log_nazwa")
-        podany_pin = st.text_input("Podaj 4-cyfrowy PIN:", type="password", key="log_pin")
+        st.write("Gib deine Daten ein, um den Schießstand zu betreten.")
+        podana_nazwa = st.text_input("Dein Name / Spitzname:", key="log_nazwa")
+        podany_pin = st.text_input("Gib deine 4-stellige PIN ein:", type="password", key="log_pin")
         
         st.write("")
         col_log1, col_log2 = st.columns([2, 1])
-        if col_log1.button("Wejdź na strzelnicę", type="primary", use_container_width=True):
+        if col_log1.button("Schießstand betreten", type="primary", use_container_width=True):
             czysta_nazwa = podana_nazwa.strip()
-            if not czysta_nazwa: st.warning("Wpisz swoje imię!")
-            elif czysta_nazwa not in konta: st.error("❌ Nie znaleziono takiego zawodnika!")
+            if not czysta_nazwa: st.warning("Gib deinen Namen ein!")
+            elif czysta_nazwa not in konta: st.error("❌ Schütze nicht gefunden!")
             else:
                 zapisany_pin = konta[czysta_nazwa]
                 if zapisany_pin == podany_pin or zapisany_pin.zfill(len(podany_pin)) == podany_pin:
@@ -321,36 +323,36 @@ if not st.session_state.zalogowany_zawodnik:
                         st.session_state["pfeil_laenge"] = str(zapisane_dane.get("Pfeil_Laenge", ""))
                         st.session_state["pfeil_spitze"] = str(zapisane_dane.get("Pfeil_Spitze", ""))
                         
-                    st.success(f"Witaj, {czysta_nazwa}!")
+                    st.success(f"Willkommen, {czysta_nazwa}!")
                     time.sleep(1)
                     st.rerun()
-                else: st.error("❌ Błędny PIN!")
+                else: st.error("❌ Falsche PIN!")
                     
-        if col_log2.button("Zapomniałem PIN-u 🆘", use_container_width=True):
-            st.info("Skontaktuj się z głównym administratorem. Posiada on tabelę 'Konta' w swoim Arkuszu Google i odczyta Ci Twój PIN!")
+        if col_log2.button("PIN vergessen 🆘", use_container_width=True):
+            st.info("Kontaktiere den Hauptadministrator. Er hat die 'Konta'-Tabelle in seinen Google Sheets und kann dir deine PIN vorlesen!")
                     
     with tab_rej:
-        st.write("Podaj swoje dane, aby stworzyć prywatny profil wyników.")
-        nowy_zawodnik = st.text_input("Twoje Imię / Pseudonim:", key="rej_nazwa")
-        nowy_pin = st.text_input("Wymyśl 4-cyfrowy PIN:", type="password", key="rej_pin")
+        st.write("Gib deine Daten ein, um ein privates Leistungsprofil zu erstellen.")
+        nowy_zawodnik = st.text_input("Dein Name / Spitzname:", key="rej_nazwa")
+        nowy_pin = st.text_input("Erfinde eine 4-stellige PIN:", type="password", key="rej_pin")
         
-        podany_kod_klubu = st.text_input("Tajny Kod Klubu (zapytaj trenera/admina):", type="password", key="rej_kod")
+        podany_kod_klubu = st.text_input(f"Geheimer Vereins-Code (frag den Trainer/Admin):", type="password", key="rej_kod")
         
         st.write("")
-        if st.button("Stwórz konto", type="primary", use_container_width=True):
+        if st.button("Konto erstellen", type="primary", use_container_width=True):
             czysta_nowa_nazwa = nowy_zawodnik.strip()
             
             if podany_kod_klubu != KOD_KLUBU:
-                st.error("❌ Błędny Kod Klubu! Ochrona przed obcymi botami aktywna.")
-            elif not czysta_nowa_nazwa: st.warning("Imię nie może być puste!")
-            elif czysta_nowa_nazwa in konta: st.warning("Taki zawodnik już istnieje!")
-            elif len(nowy_pin) < 4: st.warning("PIN musi mieć co najmniej 4 znaki!")
+                st.error("❌ Falscher Vereins-Code! Bot-Schutz aktiv.")
+            elif not czysta_nowa_nazwa: st.warning("Der Name darf nicht leer sein!")
+            elif czysta_nowa_nazwa in konta: st.warning("Dieser Schütze existiert bereits!")
+            elif len(nowy_pin) < 4: st.warning("Die PIN muss mindestens 4 Zeichen lang sein!")
             else:
                 if dodaj_uzytkownika(czysta_nowa_nazwa, nowy_pin):
-                    st.success("✅ Konto założone pomyślnie! Przejdź do logowania.")
+                    st.success("✅ Konto erfolgreich erstellt! Gehe zum Login.")
                     time.sleep(2)
                     st.rerun()
-                else: st.error("❌ Błąd przy zakładaniu konta.")
+                else: st.error("❌ Fehler bei der Kontoerstellung.")
     st.stop() 
 
 # --- ZAPIS PUNKTACJI DO GOOGLE SHEETS ---
@@ -375,7 +377,7 @@ def pobierz_dane_z_arkusza(zawodnik):
             return df
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"🕵️‍♂️ BŁĄD POBIERANIA STATYSTYK: {e}")
+        st.error(f"🕵️‍♂️ FEHLER BEIM LADEN DER STATISTIKEN: {e}")
         return pd.DataFrame()
 
 def zapisz_do_arkusza(dane_treningu, statystyki):
@@ -405,7 +407,7 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
         st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"🕵️‍♂️ BŁĄD ZAPISU WYNIKU: {e}")
+        st.error(f"🕵️‍♂️ FEHLER BEIM SPEICHERN DES ERGEBNISSES: {e}")
         return False
 
 if 'started' not in st.session_state:
@@ -439,7 +441,7 @@ def handle_radio_click():
         st.session_state.radio_input = None 
 
 # --- GŁÓWNY INTERFEJS (ZAKŁADKI) ---
-st.markdown(f"<div style='text-align: right; color: gray; font-size: 12px; margin-bottom: 5px;'>👤 Zalogowany: <b>{st.session_state.zalogowany_zawodnik}</b></div>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align: right; color: gray; font-size: 12px; margin-bottom: 5px;'>👤 Eingeloggt: <b>{st.session_state.zalogowany_zawodnik}</b></div>", unsafe_allow_html=True)
 tab_karta, tab_staty = st.tabs([f"🎯 {T[lang]['tab_score']}", f"📊 {T[lang]['tab_stats']}"])
 
 with tab_karta:
@@ -489,7 +491,8 @@ with tab_karta:
         # MEGA-PROFIL SPRZĘTOWY
         with st.expander(T[lang]["settings_exp"], expanded=False):
             st.write(f"**{T[lang]['lang_label']}**")
-            st.radio("Język", ["PL", "DE"], index=0 if lang=="PL" else 1, horizontal=True, key="lang_sel", on_change=zmiana_jezyka, label_visibility="collapsed")
+            # Radio z DE jako pierwszym wyborem
+            st.radio("Język", ["DE", "PL"], index=0 if lang=="DE" else 1, horizontal=True, key="lang_sel", on_change=zmiana_jezyka, label_visibility="collapsed")
             st.divider()
             
             st.markdown(f"#### {T[lang]['bow_setup']}")
@@ -530,7 +533,8 @@ with tab_karta:
                 c4.text_input(f"Seite {d}", placeholder=p_seite, key=f"ui_seite_{d}", label_visibility="collapsed")
             
             st.write("")
-            if st.button("💾 Zapisz profil w chmurze", use_container_width=True):
+            btn_save_txt = "💾 Profil in der Cloud speichern" if lang == "DE" else "💾 Zapisz profil w chmurze"
+            if st.button(btn_save_txt, use_container_width=True):
                 dane_sprzetu = {
                     "zuggewicht": st.session_state["zuggewicht"], "standhoehe": st.session_state["standhoehe"],
                     "tiller": st.session_state["tiller"], "nockpunkt": st.session_state["nockpunkt"],
@@ -551,10 +555,11 @@ with tab_karta:
                     dane_sprzetu[f"seite_{d}"] = st.session_state[f"seite_{d}"]
                     
                 if zapisz_profil_sprzetu(st.session_state.zalogowany_zawodnik, dane_sprzetu):
-                    st.success("✅ Zapisano! Będą z Tobą przy każdym logowaniu.")
+                    st.success("✅ Gespeichert! Sie sind bei jedem Login dabei." if lang=="DE" else "✅ Zapisano! Będą z Tobą przy każdym logowaniu.")
                     time.sleep(1)
                     st.rerun()
-                else: st.error("❌ Błąd połączenia z Arkuszem.")
+                else: 
+                    st.error("❌ Fehler bei der Verbindung mit Google Sheets." if lang=="DE" else "❌ Błąd połączenia z Arkuszem.")
             
             st.write("")
             if lang == "DE":
@@ -605,7 +610,8 @@ with tab_karta:
             )
 
             st.write("")
-            if st.button("🚪 Wyloguj / Logout", use_container_width=True): wyloguj()
+            btn_logout_txt = "🚪 Abmelden / Logout" if lang == "DE" else "🚪 Wyloguj / Logout"
+            if st.button(btn_logout_txt, use_container_width=True): wyloguj()
 
     else:
         st.markdown("""
@@ -831,11 +837,13 @@ with tab_staty:
 # --- WHATSAPP ---
 st.write("")
 st.divider()
-wiadomosc = f"Hej! 👋 Zobacz naszą nową klubową aplikację do punktacji łuczniczej: {ADRES_APLIKACJI}"
+wiadomosc = f"Hallo! 👋 Schau dir unsere neue Vereins-App für die Bogensport-Wertung an: {ADRES_APLIKACJI}" if lang == "DE" else f"Hej! 👋 Zobacz naszą nową klubową aplikację do punktacji łuczniczej: {ADRES_APLIKACJI}"
+btn_wa_txt = "🟢 App über WhatsApp teilen" if lang == "DE" else "🟢 Udostępnij aplikację przez WhatsApp"
+
 st.markdown(f"""
     <div style='text-align: center; margin-bottom: 20px;'>
         <a href="whatsapp://send?text={wiadomosc}" target="_blank" style="text-decoration: none; background-color: #25D366; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            🟢 Udostępnij aplikację przez WhatsApp
+            {btn_wa_txt}
         </a>
     </div>
 """, unsafe_allow_html=True)
