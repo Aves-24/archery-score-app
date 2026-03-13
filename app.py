@@ -3,8 +3,8 @@ from datetime import date
 
 st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
-# --- LISTA DYSTANSÓW ---
-dystanse_lista = ["18m (Spot)", "30m (80cm)", "70m (120cm)"]
+# --- LISTA DYSTANSÓW (CZYSTA I KRÓTKA) ---
+dystanse_lista = ["18m", "30m", "70m"]
 
 # --- INICJALIZACJA ZMIENNYCH ---
 if 'started' not in st.session_state:
@@ -12,12 +12,12 @@ if 'started' not in st.session_state:
 if 'scores' not in st.session_state:
     st.session_state.scores = []
 
-# Domyślne wartości celownika wpisane "NA TWARDO" - przetrwają wyłączenie apki!
+# Domyślne wartości celownika wpisane "NA TWARDO"
 if f"dz_{dystanse_lista[0]}" not in st.session_state:
     st.session_state[f"dz_{dystanse_lista[0]}"] = "11"  # 18m Dziurka
     st.session_state[f"sk_{dystanse_lista[0]}"] = "0.7" # 18m Skala
     
-    st.session_state[f"dz_{dystanse_lista[1]}"] = ""    # 30m Dziurka (Uzupełnij jak będziesz znał)
+    st.session_state[f"dz_{dystanse_lista[1]}"] = ""    # 30m Dziurka 
     st.session_state[f"sk_{dystanse_lista[1]}"] = ""    # 30m Skala
     
     st.session_state[f"dz_{dystanse_lista[2]}"] = "11"  # 70m Dziurka
@@ -46,7 +46,7 @@ def handle_radio_click():
             add_score(val) 
         st.session_state.radio_input = None 
 
-# --- EKRAN STARTOWY (MINIMALISTYCZNY) ---
+# --- EKRAN STARTOWY ---
 if not st.session_state.started:
     
     st.markdown("""
@@ -64,9 +64,9 @@ if not st.session_state.started:
     st.write("") 
     
     st.write("🎯 **Wybierz dystans:**")
-    dystans = st.selectbox("Dystans", dystanse_lista, label_visibility="collapsed")
+    # ZAMIANA NA RADIO BUTTONY
+    dystans = st.radio("Dystans", dystanse_lista, horizontal=True, label_visibility="collapsed")
 
-    # Ustawione na sztywno
     arrows_per_end = 6
     ends_per_round = 6
 
@@ -81,9 +81,7 @@ if not st.session_state.started:
 
     st.write("")
     
-    # Wielki przycisk od razu pod dystansem
     if st.button("🚀 ROZPOCZNIJ STRZELANIE", type="primary", use_container_width=True):
-        # Pobieramy ustawienia celownika dla wybranego dystansu
         base_info["CelownikDziurka"] = st.session_state[f"dz_{dystans}"].strip() if st.session_state[f"dz_{dystans}"].strip() else "-"
         base_info["CelownikSkala"] = st.session_state[f"sk_{dystans}"].strip() if st.session_state[f"sk_{dystans}"].strip() else "-"
         
@@ -95,7 +93,7 @@ if not st.session_state.started:
 
     st.divider()
 
-    # --- ZWINIĘTE USTAWIENIA CELOWNIKA (Na samym dole) ---
+    # --- ZWINIĘTE USTAWIENIA CELOWNIKA ---
     with st.expander("⚙️ Ustawienia wizjera (Zmieniaj rzadko)", expanded=False):
         c1, c2, c3 = st.columns([2, 1, 1])
         c1.markdown("<span style='font-size:12px; color:gray;'>Dystans</span>", unsafe_allow_html=True)
@@ -104,8 +102,7 @@ if not st.session_state.started:
         
         for d in dystanse_lista:
             c1, c2, c3 = st.columns([2, 1, 1])
-            c1.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{d.split(' ')[0]}</div>", unsafe_allow_html=True)
-            # Wpisujemy zmienne do st.session_state
+            c1.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{d}</div>", unsafe_allow_html=True)
             st.text_input(f"Dz {d}", key=f"dz_{d}", label_visibility="collapsed")
             st.text_input(f"Sk {d}", key=f"sk_{d}", label_visibility="collapsed")
 
