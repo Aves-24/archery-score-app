@@ -10,7 +10,7 @@ import altair as alt
 st.set_page_config(page_title="SFT Schießzettel", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
-NAZWA_ARKUSZA = "Karta_Punktowa" # Zostawiamy PL, żeby nie zepsuć bazy Google Sheets!
+NAZWA_ARKUSZA = "Karta_Punktowa" 
 ADRES_APLIKACJI = "https://sft-schiesszettel.streamlit.app/"
 
 # TARCZA ANTY-BOTOWA! 
@@ -25,11 +25,14 @@ T = {
         "title": "🏹 Karta Punktowa",
         "tab_score": "Karta Punktowa",
         "tab_stats": "Statystyki",
+        "tab_rank": "🏆 Ranking",
         "training": "Trening",
         "tournament": "Turniej",
         "event_name": "Nazwa turnieju:",
         "event_name_ph": "np. Mistrzostwa Klubu",
         "choose_dist": "🎯 **Wybierz dystans:**",
+        "multi": "⚔️ Mini-Turniej (Graj ze znajomymi)",
+        "room_code": "2-cyfrowy kod pokoju (np. 12):",
         "start_btn": "🚀 ROZPOCZNIJ STRZELANIE",
         "settings_exp": "⚙️ Profil Sprzętu i Ustawienia",
         "lang_label": "Wybierz język / Sprache:",
@@ -62,17 +65,23 @@ T = {
         "arr_len": "Długość (Länge) [in]",
         "arr_point": "Waga grotu (Spitze) [gr]",
         "dl_stats_csv": "📥 Pobierz statystyki (CSV)",
-        "dl_equip_txt": "📥 Pobierz profil sprzętu (TXT)"
+        "dl_equip_txt": "📥 Pobierz profil sprzętu (TXT)",
+        "rank_title": "🏆 Tabela Wyników na Żywo",
+        "rank_btn": "🔄 Odśwież tabelę",
+        "rank_empty": "Nikt jeszcze nie ukończył strzelania z tym kodem dzisiaj! Gdy ktoś kliknie 'Zakończ', jego wynik tu wskoczy."
     },
     "DE": {
         "title": "🏹 Schießzettel",
         "tab_score": "Schießzettel",
         "tab_stats": "Statistiken",
+        "tab_rank": "🏆 Ranking",
         "training": "Training",
         "tournament": "Turnier",
         "event_name": "Turniername:",
         "event_name_ph": "z.B. Vereinsmeisterschaft",
         "choose_dist": "🎯 **Wähle Distanz:**",
+        "multi": "⚔️ Mini-Turnier (Mit Freunden spielen)",
+        "room_code": "2-stelliger Raumcode (z.B. 12):",
         "start_btn": "🚀 SCHIESSEN STARTEN",
         "settings_exp": "⚙️ Ausrüstung & Einstellungen",
         "lang_label": "Sprache / Wybierz język:",
@@ -105,12 +114,15 @@ T = {
         "arr_len": "Pfeillänge [in]",
         "arr_point": "Spitzengewicht [gr]",
         "dl_stats_csv": "📥 Statistiken herunterladen (CSV)",
-        "dl_equip_txt": "📥 Ausrüstungsprofil herunterladen (TXT)"
+        "dl_equip_txt": "📥 Ausrüstungsprofil herunterladen (TXT)",
+        "rank_title": "🏆 Live-Rangliste",
+        "rank_btn": "🔄 Tabelle aktualisieren",
+        "rank_empty": "Heute hat noch niemand mit diesem Code das Schießen beendet! Sobald jemand speichert, taucht er hier auf."
     }
 }
 
 # --- INICJALIZACJA SESJI ---
-if 'lang' not in st.session_state: st.session_state.lang = "DE" # Zmieniono domyślny na DE
+if 'lang' not in st.session_state: st.session_state.lang = "DE" 
 if 'zalogowany_zawodnik' not in st.session_state: st.session_state.zalogowany_zawodnik = None
 if 'aktywne_dystanse' not in st.session_state: st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
 
@@ -135,7 +147,7 @@ def load_user_settings(zawodnik):
             with open(plik, "r") as f:
                 data = json.load(f)
                 st.session_state.aktywne_dystanse = data.get("aktywne_dystanse", ["18m", "30m", "70m"])
-                st.session_state.lang = data.get("lang", "DE") # Domyślnie DE
+                st.session_state.lang = data.get("lang", "DE") 
         except:
             st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
             st.session_state.lang = "DE"
@@ -160,7 +172,7 @@ def zmiana_jezyka():
     st.session_state.lang = st.session_state.lang_sel
     save_user_settings()
 
-# --- FUNKCJE BAZY UŻYTKOWNIKÓW I PROFILU SPRZĘTU (Z SYSTEMEM ŚLEDCZYM W DE) ---
+# --- FUNKCJE BAZY UŻYTKOWNIKÓW I PROFILU SPRZĘTU ---
 @st.cache_data(ttl=30)
 def pobierz_uzytkownikow():
     try:
@@ -236,6 +248,42 @@ def zapisz_profil_sprzetu(zawodnik, dane):
         st.error(f"🕵️‍♂️ FEHLER BEIM SPEICHERN DER AUSRÜSTUNG: {e}")
         return False
 
+# --- FUNKCJE MULTIPLAYER (NOWOŚĆ!) ---
+def zapisz_wynik_grupowy(zawodnik, kod, punkty, x10, x):
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        creds_dict = json.loads(klucz_tekst)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open(NAZWA_ARKUSZA)
+        try: 
+            ws = sh.worksheet("Wyniki_Grupowe")
+        except:
+            ws = sh.add_worksheet(title="Wyniki_Grupowe", rows="1000", cols="6")
+            ws.append_row(["Data", "Kod", "Zawodnik", "Punkty", "10_i_X", "Same X"])
+            
+        now = date.today().strftime("%d.%m.%Y")
+        ws.append_row([now, str(kod).strip(), zawodnik, punkty, x10, x])
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"🕵️‍♂️ MULTIPLAYER FEHLER: {e}")
+        return False
+
+@st.cache_data(ttl=5) # Odświeża z chmury co 5 sekund, żeby nie blokować limitów
+def pobierz_ranking():
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        creds_dict = json.loads(klucz_tekst)
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open(NAZWA_ARKUSZA)
+        try: 
+            ws = sh.worksheet("Wyniki_Grupowe")
+        except: 
+            return pd.DataFrame()
+        return pd.DataFrame(ws.get_all_records())
+    except:
+        return pd.DataFrame()
+
 # --- OSOBISTY SYSTEM AUTO-SAVE ---
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
@@ -278,7 +326,7 @@ for d in dystanse_lista:
 for z in zmienne_sprzet:
     if z not in st.session_state: st.session_state[z] = ""
 
-# --- EKRAN LOGOWANIA / REJESTRACJI (W PEŁNI PO NIEMIECKU) ---
+# --- EKRAN LOGOWANIA / REJESTRACJI ---
 if not st.session_state.zalogowany_zawodnik:
     st.markdown(f"""
     <div style='background-color: #2E8B57; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center;'>
@@ -442,7 +490,9 @@ def handle_radio_click():
 
 # --- GŁÓWNY INTERFEJS (ZAKŁADKI) ---
 st.markdown(f"<div style='text-align: right; color: gray; font-size: 12px; margin-bottom: 5px;'>👤 Eingeloggt: <b>{st.session_state.zalogowany_zawodnik}</b></div>", unsafe_allow_html=True)
-tab_karta, tab_staty = st.tabs([f"🎯 {T[lang]['tab_score']}", f"📊 {T[lang]['tab_stats']}"])
+
+# DODANO ZAKŁADKĘ RANKINGU
+tab_karta, tab_staty, tab_rank = st.tabs([f"🎯 {T[lang]['tab_score']}", f"📊 {T[lang]['tab_stats']}", f"{T[lang]['tab_rank']}"])
 
 with tab_karta:
     if not st.session_state.started:
@@ -462,36 +512,48 @@ with tab_karta:
         
         dystans = st.radio("Dystans", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
 
+        st.divider()
+        
+        # --- NOWOŚĆ: MULTIPLAYER SYSTEM ---
+        gra_multi = st.checkbox(T[lang]["multi"])
+        kod_meczu = ""
+        if gra_multi:
+            kod_meczu = st.text_input(T[lang]["room_code"], max_chars=2, placeholder="np. 07")
+            st.info("Pamiętaj: wynik wpisze się do Twoich statystyk prywatnych, a na koniec znajdziecie zwycięzcę w zakładce Ranking!" if lang == "PL" else "Hinweis: Das Ergebnis wird in deinen privaten Statistiken gespeichert und der Gewinner steht im Tab Ranking!")
+
         arrows_per_end = 6
         ends_per_round = 6
 
         base_info = {
             "Data": date.today().strftime("%d.%m.%Y"),
             "Typ": event_type, "Nazwa": event_name if event_name.strip() else "-",
-            "StrzalWSerii": arrows_per_end, "SeriiWRundzie": ends_per_round, "Dystans": dystans
+            "StrzalWSerii": arrows_per_end, "SeriiWRundzie": ends_per_round, "Dystans": dystans,
+            "KodMeczu": kod_meczu.strip() if gra_multi else ""
         }
 
         st.write("")
         if st.button(T[lang]["start_btn"], type="primary", use_container_width=True):
-            czesci = []
-            if st.session_state[f'aus_{dystans}']: czesci.append(f"A:{st.session_state[f'aus_{dystans}']}")
-            if st.session_state[f'hoehe_{dystans}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans}']}")
-            if st.session_state[f'seite_{dystans}']: czesci.append(f"S:{st.session_state[f'seite_{dystans}']}")
-            base_info["CelownikSkala"] = " | ".join(czesci) if czesci else "-"
-            
-            st.session_state.event_info = base_info
-            st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
-            st.session_state.max_total_arrows = st.session_state.max_arrows_per_round * 2
-            st.session_state.started = True
-            save_backup()
-            st.rerun()
+            if gra_multi and len(kod_meczu.strip()) == 0:
+                st.error("Musisz podać 2-cyfrowy kod!" if lang == "PL" else "Du musst einen 2-stelligen Code eingeben!")
+            else:
+                czesci = []
+                if st.session_state[f'aus_{dystans}']: czesci.append(f"A:{st.session_state[f'aus_{dystans}']}")
+                if st.session_state[f'hoehe_{dystans}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans}']}")
+                if st.session_state[f'seite_{dystans}']: czesci.append(f"S:{st.session_state[f'seite_{dystans}']}")
+                base_info["CelownikSkala"] = " | ".join(czesci) if czesci else "-"
+                
+                st.session_state.event_info = base_info
+                st.session_state.max_arrows_per_round = arrows_per_end * ends_per_round
+                st.session_state.max_total_arrows = st.session_state.max_arrows_per_round * 2
+                st.session_state.started = True
+                save_backup()
+                st.rerun()
 
         st.divider()
 
         # MEGA-PROFIL SPRZĘTOWY
         with st.expander(T[lang]["settings_exp"], expanded=False):
             st.write(f"**{T[lang]['lang_label']}**")
-            # Radio z DE jako pierwszym wyborem
             st.radio("Język", ["DE", "PL"], index=0 if lang=="DE" else 1, horizontal=True, key="lang_sel", on_change=zmiana_jezyka, label_visibility="collapsed")
             st.divider()
             
@@ -635,6 +697,8 @@ with tab_karta:
         def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
         
         tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
+        if info.get('KodMeczu', ""): tytul += f" [⚔️ {info['KodMeczu']}]"
+        
         celownik_tekst = ""
         if info['CelownikSkala'] != "-":
             celownik_tekst = f" | 🔭 {info['CelownikSkala']}"
@@ -737,6 +801,11 @@ with tab_karta:
                 "10": count_10_total, "9": scores.count("9"), "M": scores.count("M")
             }
             if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
+                # --- TUTAJ WYSYŁAMY TEŻ DO TABELI GRUPOWEJ ---
+                kod_meczu = st.session_state.event_info.get("KodMeczu", "")
+                if kod_meczu:
+                    zapisz_wynik_grupowy(st.session_state.zalogowany_zawodnik, kod_meczu, total_points, count_10_total, count_x)
+                    
                 st.success("✅ Zapisano!" if lang=="PL" else "✅ Gespeichert!")
                 time.sleep(1.5)
             else:
@@ -833,6 +902,46 @@ with tab_staty:
                 mime='text/csv', 
                 use_container_width=True
             )
+
+# --- ZAKŁADKA RANKINGU (MULTIPLAYER) ---
+with tab_rank:
+    st.markdown(f"### {T[lang]['rank_title']}")
+    
+    col_r1, col_r2 = st.columns([2,1])
+    szukany_kod = col_r1.text_input(T[lang]["room_code"], max_chars=2, key="search_code")
+    
+    st.write("")
+    if st.button(T[lang]["rank_btn"], type="secondary", use_container_width=True):
+        if not szukany_kod:
+            st.warning("Podaj kod pokoju!" if lang == "PL" else "Bitte gib den Raumcode ein!")
+        else:
+            df_rank = pobierz_ranking()
+            if df_rank.empty:
+                st.info(T[lang]["rank_empty"])
+            else:
+                dzisiaj = date.today().strftime("%d.%m.%Y")
+                df_filtrowane = df_rank[(df_rank["Data"].astype(str) == dzisiaj) & (df_rank["Kod"].astype(str) == str(szukany_kod))]
+                
+                if df_filtrowane.empty:
+                    st.info(T[lang]["rank_empty"])
+                else:
+                    # Sortowanie: Punkty -> 10+X -> Same X
+                    df_filtrowane["Punkty"] = pd.to_numeric(df_filtrowane["Punkty"])
+                    df_filtrowane["10_i_X"] = pd.to_numeric(df_filtrowane["10_i_X"])
+                    df_filtrowane["Same X"] = pd.to_numeric(df_filtrowane["Same X"])
+                    df_filtrowane = df_filtrowane.sort_values(by=["Punkty", "10_i_X", "Same X"], ascending=[False, False, False]).reset_index(drop=True)
+                    
+                    st.markdown("---")
+                    for idx, row in df_filtrowane.iterrows():
+                        m = "🥇" if idx == 0 else ("🥈" if idx == 1 else ("🥉" if idx == 2 else f"**{idx+1}.**"))
+                        st.markdown(f"""
+                        <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid {"#D4AC0D" if idx==0 else "#aaa"};'>
+                            <h3 style='margin: 0; color: #333;'>{m} {row['Zawodnik']}</h3>
+                            <p style='margin: 5px 0 0 0; font-size: 18px;'><b>{row['Punkty']}</b> Punkte &nbsp; <span style='font-size: 14px; color: gray;'>(10+X: {row['10_i_X']} | X: {row['Same X']})</span></p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    st.markdown("---")
 
 # --- WHATSAPP ---
 st.write("")
