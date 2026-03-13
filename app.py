@@ -11,10 +11,10 @@ st.set_page_config(page_title="Łucznik - Karta Punktowa", layout="centered")
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa"
-ADRES_APLIKACJI = "https://archery-score-app-7z8m6rakrfwe2nt59bpzzs.streamlit.app/" # <-- PAMIĘTAJ O SWOIM LINKU!
+ADRES_APLIKACJI = "https://twoja-aplikacja.streamlit.app" # <-- PAMIĘTAJ O SWOIM LINKU!
 
 # TARCZA ANTY-BOTOWA! 
-KOD_KLUBU = "LUK123" # <-- ZMIEŃ NA WŁASNE HASŁO KLUBU!
+KOD_KLUBU = "SFT" # <-- TWÓJ NOWY KOD DOSTĘPU
 
 # --- DYSTANSE ---
 dystanse_lista = ["18m", "20m", "30m", "40m", "50m", "60m", "70m"]
@@ -50,6 +50,7 @@ T = {
         "stat_metric": "Pokaż na wykresie:",
         "visier": "🔭 Celownik (Visier)",
         "choose_dist_settings": "Zaznacz widoczne dystanse na torze:",
+        "scale": "Skala (Fein)",
         "bow_setup": "🏹 Łuk (Bogen-Setup)",
         "draw_weight": "Siła (Zuggewicht) [lbs]",
         "brace_height": "Wys. cięciwy (Standhöhe) [cm/in]",
@@ -92,6 +93,7 @@ T = {
         "stat_metric": "Zeige im Diagramm:",
         "visier": "🔭 Visier",
         "choose_dist_settings": "Sichtbare Distanzen markieren:",
+        "scale": "Feineinstellung",
         "bow_setup": "🏹 Bogen-Setup",
         "draw_weight": "Zuggewicht [lbs]",
         "brace_height": "Standhöhe [cm/in]",
@@ -114,7 +116,7 @@ if 'aktywne_dystanse' not in st.session_state: st.session_state.aktywne_dystanse
 
 lang = st.session_state.lang
 
-# --- SYSTEM OSOBISTYCH USTAWIEŃ (Rozwiązuje problem mieszania się użytkowników!) ---
+# --- SYSTEM OSOBISTYCH USTAWIEŃ ---
 def get_settings_file():
     return f"settings_{st.session_state.zalogowany_zawodnik}.json"
 
@@ -294,9 +296,8 @@ if not st.session_state.zalogowany_zawodnik:
                 if zapisany_pin == podany_pin or zapisany_pin.zfill(len(podany_pin)) == podany_pin:
                     st.session_state.zalogowany_zawodnik = czysta_nazwa
                     
-                    # Ładowanie osobistych ustawień (dystanse i język)
                     load_user_settings(czysta_nazwa)
-                    load_backup() # Przywraca niedokończony trening, jeśli istnieje!
+                    load_backup() 
                     
                     zapisane_dane = pobierz_profil_sprzetu(czysta_nazwa)
                     if zapisane_dane:
@@ -326,8 +327,8 @@ if not st.session_state.zalogowany_zawodnik:
         nowy_zawodnik = st.text_input("Twoje Imię / Pseudonim:", key="rej_nazwa")
         nowy_pin = st.text_input("Wymyśl 4-cyfrowy PIN:", type="password", key="rej_pin")
         
-        # OTO ON! BRAKUJĄCY KOD KLUBU!
-        podany_kod_klubu = st.text_input("Tajny Kod Klubu (zapytaj admina):", type="password", key="rej_kod")
+        # OTO ON! POLE NA KOD KLUBU WIDOCZNE DLA KAŻDEGO
+        podany_kod_klubu = st.text_input("Tajny Kod Klubu (zapytaj trenera/admina):", type="password", key="rej_kod")
         
         st.write("")
         if st.button("Stwórz konto", type="primary", use_container_width=True):
