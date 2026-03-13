@@ -535,8 +535,17 @@ with tab_staty:
                 lambda row: f"{row['Typ']} - {row['Nazwa']}" if row['Nazwa'] != "-" else row['Typ'], axis=1
             )
             
-            domena_typow = [T["PL"]["training"], T["PL"]["tournament"], T["DE"]["training"], T["DE"]["tournament"]]
-            zakres_kolorow = ['#2E8B57', '#1E88E5', '#2E8B57', '#1E88E5']
+            # UJEDNOLICENIE TYPÓW (Likwiduje podwójną legendę PL i DE)
+            df_filtrowane['Typ'] = df_filtrowane['Typ'].replace({
+                T["PL"]["training"]: T[lang]["training"],
+                T["DE"]["training"]: T[lang]["training"],
+                T["PL"]["tournament"]: T[lang]["tournament"],
+                T["DE"]["tournament"]: T[lang]["tournament"]
+            })
+            
+            # Legenda ma teraz zawsze tylko dwie, poprawne pozycje
+            domena_typow = [T[lang]["training"], T[lang]["tournament"]]
+            zakres_kolorow = ['#2E8B57', '#1E88E5']
             kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
             
             max_wartosc = df_filtrowane[kolumna_y].max()
@@ -549,10 +558,10 @@ with tab_staty:
                 x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
             )
             
-            # TŁUMACZENIE DYMKÓW (TOOLTIP) NA PL / DE
+            # TŁUMACZENIE DYMKÓW (TOOLTIP) NA PL / DE + NOWA ZŁOTA IKONKA
             if lang == "PL":
                 tt_punkty = "🎯 Punkty"
-                tt_x = "❌ Same X"
+                tt_x = "🟡 Same X"
                 tt_10 = "🔟 Wszystkie 10"
                 tt_9 = "9️⃣ Dziewiątki"
                 tt_m = "Ⓜ️ Pudła (M)"
@@ -562,7 +571,7 @@ with tab_staty:
                 tt_czas = "⏰ Godzina"
             else:
                 tt_punkty = "🎯 Punkte"
-                tt_x = "❌ Nur X"
+                tt_x = "🟡 Nur X"
                 tt_10 = "🔟 Alle 10er"
                 tt_9 = "9️⃣ 9er"
                 tt_m = "Ⓜ️ Fehler (M)"
@@ -574,12 +583,12 @@ with tab_staty:
             # ŚCISŁA KOLEJNOŚĆ W DYMKU
             narzedzia = [
                 alt.Tooltip('Punkty:Q', title=tt_punkty),
+                alt.Tooltip('Wydarzenie:N', title=tt_wydarzenie),
+                alt.Tooltip('Strzały (Suma):Q', title=tt_strzaly),
                 alt.Tooltip('Same X:Q', title=tt_x),
                 alt.Tooltip('10:Q', title=tt_10),
                 alt.Tooltip('9:Q', title=tt_9),
                 alt.Tooltip('M:Q', title=tt_m),
-                alt.Tooltip('Wydarzenie:N', title=tt_wydarzenie),
-                alt.Tooltip('Strzały (Suma):Q', title=tt_strzaly),
                 alt.Tooltip('Data:N', title=tt_data),
                 alt.Tooltip('Czas:N', title=tt_czas)
             ]
@@ -587,7 +596,7 @@ with tab_staty:
             slupki = baza.mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
                 y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz, scale=skala_y), 
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
-                tooltip=narzedzia # Wrzucamy tu naszą żelazną kolejność
+                tooltip=narzedzia 
             )
             
             teksty = baza.mark_text(
