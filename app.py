@@ -751,4 +751,8 @@ st.divider()
 wiadomosc = f"Hej! 👋 Zobacz naszą nową klubową aplikację do punktacji łuczniczej: {ADRES_APLIKACJI}"
 st.markdown(f"""
     <div style='text-align: center; margin-bottom: 20px;'>
-        <a href="whatsapp://send?text={wiadomosc}" target="_blank" style="text
+        <a href="whatsapp://send?text={wiadomosc}" target="_blank" style="text-decoration: none; background-color: #25D366; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            🟢 Udostępnij aplikację przez WhatsApp
+        </a>
+    </div>
+""", unsafe_allow_html=True)
