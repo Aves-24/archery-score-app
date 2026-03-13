@@ -112,18 +112,13 @@ def pobierz_dane_z_arkusza():
         
         if zapisy:
             df = pd.DataFrame(zapisy)
-            
-            # CZYSZCZENIE: Usunięcie ukrytych spacji w nagłówkach
             df.columns = df.columns.astype(str).str.strip()
             
-            # CZYSZCZENIE: Wymuszenie liczb dla wykresu
             kolumny_liczbowe = ["Punkty", "Same X", "10", "9", "M", "Strzały (Suma)"]
             for col in kolumny_liczbowe:
                 if col in df.columns:
-                    # Zamienia przecinki na kropki i zmusza do bycia cyfrą
                     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
                 else:
-                    # Jeśli kolumna w ogóle nie istnieje, daje 0
                     df[col] = 0
             
             if "Typ" in df.columns:
@@ -169,7 +164,7 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
         ]
         
         worksheet.append_row(wiersz)
-        st.cache_data.clear() # Natychmiastowe wyczyszczenie pamięci
+        st.cache_data.clear()
         return True
     except Exception as e:
         print(f"Błąd zapisu do Google Sheets: {e}")
@@ -529,14 +524,30 @@ with tab_staty:
             zakres_kolorow = ['#2E8B57', '#1E88E5', '#2E8B57', '#1E88E5']
             kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
             
-            # Usunięto .interactive(), żeby na telefonie słupki nie uciekały przy scrollowaniu
-            wykres = alt.Chart(df_filtrowane).mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-                x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45)), 
+            # 1. TWORZENIE BAZY WYKRESU (Oś X)
+            baza = alt.Chart(df_filtrowane).encode(
+                x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45))
+            )
+            
+            # 2. TWORZENIE SŁUPKÓW (Oś Y i kolory)
+            slupki = baza.mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
                 y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz),
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
                 tooltip=['Data', 'Czas', 'Nazwa', 'Punkty', 'Same X', '10', '9', 'M', 'Strzały (Suma)']
-            ).properties(
-                height=350
             )
+            
+            # 3. TWORZENIE TEKSTÓW (Wartości bezpośrednio NAD słupkami)
+            teksty = baza.mark_text(
+                align='center',
+                baseline='bottom',
+                dy=-5, # Przemieszcza napis 5 pikseli nad szczyt słupka
+                fontWeight='bold'
+            ).encode(
+                y=alt.Y(f'{kolumna_y}:Q'),
+                text=alt.Text(f'{kolumna_y}:Q') # To pobiera i wpisuje samą cyfrę!
+            )
+            
+            # 4. SKŁADANIE WYKRESU (Słupki + Tekst nakładają się na siebie)
+            wykres = (slupki + teksty).properties(height=350)
             
             st.altair_chart(wykres, use_container_width=True)
