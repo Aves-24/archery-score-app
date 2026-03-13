@@ -100,7 +100,7 @@ if 'lang' not in st.session_state:
 lang = st.session_state.lang
 
 # --- POBIERANIE DANYCH Z GOOGLE (DO STATYSTYK) ---
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=15)
 def pobierz_dane_z_arkusza():
     try:
         klucz_tekst = st.secrets["google_credentials"]
@@ -109,15 +109,30 @@ def pobierz_dane_z_arkusza():
         sh = gc.open(NAZWA_ARKUSZA)
         worksheet = sh.get_worksheet(0)
         zapisy = worksheet.get_all_records()
+        
         if zapisy:
             df = pd.DataFrame(zapisy)
+            
+            # CZYSZCZENIE: Usunięcie ukrytych spacji w nagłówkach
+            df.columns = df.columns.astype(str).str.strip()
+            
+            # CZYSZCZENIE: Wymuszenie liczb dla wykresu
             kolumny_liczbowe = ["Punkty", "Same X", "10", "9", "M", "Strzały (Suma)"]
             for col in kolumny_liczbowe:
                 if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                    # Zamienia przecinki na kropki i zmusza do bycia cyfrą
+                    df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                else:
+                    # Jeśli kolumna w ogóle nie istnieje, daje 0
+                    df[col] = 0
+            
+            if "Typ" in df.columns:
+                df["Typ"] = df["Typ"].astype(str).str.strip()
+                
             return df
         return pd.DataFrame()
     except Exception as e:
+        print(f"Błąd odczytu z arkusza: {e}")
         return pd.DataFrame()
 
 # --- ZAPIS DO GOOGLE SHEETS ---
@@ -154,7 +169,7 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
         ]
         
         worksheet.append_row(wiersz)
-        st.cache_data.clear()
+        st.cache_data.clear() # Natychmiastowe wyczyszczenie pamięci
         return True
     except Exception as e:
         print(f"Błąd zapisu do Google Sheets: {e}")
@@ -354,7 +369,7 @@ with tab_karta:
         def render_round_html(round_num, round_scores, cumulative_start):
             r_points = sum(get_num(s) for s in round_scores)
             r_xs = round_scores.count("X")
-            r_10s = round_scores.count("10") + r_xs # W tabeli HTML X zawsze dodawał się do dziesiątek!
+            r_10s = round_scores.count("10") + r_xs
             r_9s = round_scores.count("9")
             r_max_current = len(round_scores) * 10
             r_percent = (r_points / r_max_current * 100) if r_max_current > 0 else 0
@@ -423,7 +438,7 @@ with tab_karta:
         
         count_x = scores.count("X")
         count_10_czyste = scores.count("10")
-        count_10_total = count_10_czyste + count_x # W łucznictwie każdy X to "dziesiątka"!
+        count_10_total = count_10_czyste + count_x 
         
         count_9 = scores.count("9")
         count_m = scores.count("M")
@@ -434,7 +449,6 @@ with tab_karta:
         col_s2.metric(T[lang]["arrow_cnt"], f"{total_arrows_shot}")
         col_s3.metric(T[lang]["eff"], f"{percent:.1f}%")
         
-        # Zaktualizowany widok (Suma 10+X już po prostu pobiera poprawne count_10_total)
         st.write(f"**{T[lang]['sum_10_x']}** {count_10_total} &nbsp;&nbsp;|&nbsp;&nbsp; **{T[lang]['only_x']}** {count_x}")
         st.write("")
         
@@ -454,7 +468,7 @@ with tab_karta:
                 "Strzały": total_arrows_shot,
                 "10_i_X": count_10_total, 
                 "X": count_x,
-                "10": count_10_total, # Zapisujemy poprawną, zsumowaną liczbę dziesiątek
+                "10": count_10_total, 
                 "9": count_9,
                 "M": count_m
             }
@@ -515,13 +529,14 @@ with tab_staty:
             zakres_kolorow = ['#2E8B57', '#1E88E5', '#2E8B57', '#1E88E5']
             kolory = alt.Scale(domain=domena_typow, range=zakres_kolorow)
             
+            # Usunięto .interactive(), żeby na telefonie słupki nie uciekały przy scrollowaniu
             wykres = alt.Chart(df_filtrowane).mark_bar(opacity=0.9, cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-                x=alt.X('Sesja:N', title='Data', sort=None), 
+                x=alt.X('Sesja:N', title='Data', sort=None, axis=alt.Axis(labelAngle=-45)), 
                 y=alt.Y(f'{kolumna_y}:Q', title=wybrana_metryka_klucz),
                 color=alt.Color('Typ:N', scale=kolory, legend=alt.Legend(title="Typ", orient="bottom")),
                 tooltip=['Data', 'Czas', 'Nazwa', 'Punkty', 'Same X', '10', '9', 'M', 'Strzały (Suma)']
             ).properties(
                 height=350
-            ).interactive()
+            )
             
             st.altair_chart(wykres, use_container_width=True)
