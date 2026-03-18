@@ -330,7 +330,7 @@ def pobierz_terminarz():
         return df
     except: return pd.DataFrame()
 
-# --- KALENDARZ OSOBISTY (NOWOŚĆ) ---
+# --- KALENDARZ OSOBISTY (PANCERNY!) ---
 @st.cache_data(ttl=5)
 def pobierz_kalendarz_osobisty(zawodnik):
     try:
@@ -353,7 +353,8 @@ def dodaj_kalendarz_osobisty(zawodnik, data, nazwa):
         klucz_tekst = st.secrets["google_credentials"]
         gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
         ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
-        event_id = str(int(time.time() * 1000))
+        # Dodajemy litery "EV-" żeby Arkusz ZAWSZE traktował to jako tekst, a nie liczbę!
+        event_id = f"EV-{int(time.time() * 1000)}"
         ws.append_row([event_id, zawodnik, data.strftime("%d.%m.%Y"), nazwa])
         st.cache_data.clear()
         return True
@@ -364,11 +365,16 @@ def usun_kalendarz_osobisty(event_id):
         klucz_tekst = st.secrets["google_credentials"]
         gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
         ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
-        komorka = ws.find(str(event_id), in_column=1)
-        if komorka:
-            ws.delete_rows(komorka.row)
-            st.cache_data.clear()
-            return True
+        
+        # Pobieramy wszystko i szukamy po stronie Pythona (omijamy błędy Google Sheets)
+        zapisy = ws.get_all_records()
+        for i, row in enumerate(zapisy):
+            if str(row.get("ID", "")) == str(event_id):
+                # i to indeks tablicy Pythona (od 0). W arkuszu wiersz 1 to nagłówki, więc dane zaczynają się od 2.
+                ws.delete_row(i + 2) 
+                st.cache_data.clear()
+                return True
+        return False
     except: return False
 
 
@@ -592,7 +598,6 @@ if st.session_state.started:
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
 # ---------------------------------------------------------------------
 else:
-    # --- NOWE MAGICZNE MENU ---
     with st.container():
         wybrana_zakladka = option_menu(
             menu_title=None,
@@ -886,7 +891,7 @@ else:
                     with col_e1:
                         st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}</div>", unsafe_allow_html=True)
                     with col_e2:
-                        st.write("") # spacer dla wyrównania
+                        st.write("") 
                         if st.button("🗑️", key=f"del_{row['ID']}"):
                             usun_kalendarz_osobisty(row['ID'])
                             st.rerun()
@@ -909,7 +914,6 @@ else:
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-
 
     # --- ZAKŁADKA: EINSTELLUNGEN ---
     elif wybrana_zakladka == T[lang]["menu_settings"]:
