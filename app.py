@@ -6,6 +6,7 @@ from datetime import datetime, date, timedelta
 import gspread
 import pandas as pd
 import altair as alt
+from streamlit_option_menu import option_menu # NOWA WTYCZKA MENU!
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered")
 
@@ -23,10 +24,10 @@ dystanse_lista = ["18m", "20m", "30m", "40m", "50m", "60m", "70m"]
 T = {
     "PL": {
         "title": "🏹 Karta Punktowa",
-        "menu_home": "🏠 Home",
-        "menu_score": "🎯 Schießzettel",
-        "menu_multi": "⚔️ Mini-Turniej",
-        "menu_settings": "⚙️ Ustawienia",
+        "menu_home": "Home",
+        "menu_score": "Schießzettel",
+        "menu_multi": "Mini-Turniej",
+        "menu_settings": "Ustawienia",
         "home_welcome": "Witaj z powrotem",
         "home_last_training": "Twoje ostatnie strzelanie:",
         "home_no_data": "Nie masz jeszcze żadnych wyników. Czas na trening!",
@@ -71,10 +72,10 @@ T = {
     },
     "DE": {
         "title": "🏹 Schießzettel",
-        "menu_home": "🏠 Home",
-        "menu_score": "🎯 Schießzettel",
-        "menu_multi": "⚔️ Mini-Turnier",
-        "menu_settings": "⚙️ Einstellungen",
+        "menu_home": "Home",
+        "menu_score": "Schießzettel",
+        "menu_multi": "Mini-Turnier",
+        "menu_settings": "Einstellungen",
         "home_welcome": "Willkommen zurück",
         "home_last_training": "Dein letztes Training:",
         "home_no_data": "Noch keine Ergebnisse vorhanden. Zeit für ein Training!",
@@ -501,12 +502,24 @@ if st.session_state.started:
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
 # ---------------------------------------------------------------------
 else:
-    tab_home, tab_score, tab_multi, tab_settings = st.tabs([
-        T[lang]["menu_home"], T[lang]["menu_score"], T[lang]["menu_multi"], T[lang]["menu_settings"]
-    ])
+    # --- NOWE MAGICZNE MENU ---
+    with st.container():
+        wybrana_zakladka = option_menu(
+            menu_title=None,
+            options=[T[lang]["menu_home"], T[lang]["menu_score"], T[lang]["menu_multi"], T[lang]["menu_settings"]], 
+            icons=['house', 'bullseye', 'trophy', 'gear'], 
+            default_index=0, 
+            orientation="horizontal",
+            styles={
+                "container": {"padding": "0!important", "background-color": "#ffffff", "border": "1px solid #ddd", "border-radius": "10px", "margin-bottom": "20px"},
+                "icon": {"color": "#D4AC0D", "font-size": "18px"}, 
+                "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": "#f4f4f4"},
+                "nav-link-selected": {"background-color": "#2E8B57", "font-weight": "bold", "color": "white"},
+            }
+        )
 
     # --- ZAKŁADKA: HOME ---
-    with tab_home:
+    if wybrana_zakladka == T[lang]["menu_home"]:
         st.markdown(f"### {T[lang]['home_welcome']}, {st.session_state.zalogowany_zawodnik}! 🎯")
         st.divider()
         st.write(f"**{T[lang]['home_last_training']}**")
@@ -543,7 +556,7 @@ else:
         """, unsafe_allow_html=True)
 
     # --- ZAKŁADKA: SCHIESSZETTEL ---
-    with tab_score:
+    elif wybrana_zakladka == T[lang]["menu_score"]:
         event_type = st.radio("typ_wydarzenia", [T[lang]["training"], T[lang]["tournament"]], horizontal=True, label_visibility="collapsed")
         event_name = "-"
         if event_type == T[lang]["tournament"]:
@@ -572,7 +585,7 @@ else:
             st.rerun()
 
     # --- ZAKŁADKA: MINI-TURNIER ---
-    with tab_multi:
+    elif wybrana_zakladka == T[lang]["menu_multi"]:
         st.write(f"**{T[lang]['room_code']}**")
         kod_meczu = st.text_input("Kod Pokoju", max_chars=2, placeholder="np. 07", label_visibility="collapsed")
         
@@ -611,7 +624,6 @@ else:
                 df_rank = pobierz_ranking()
                 if df_rank.empty: st.info(T[lang]["rank_empty"])
                 else:
-                    # LOGIKA 12 GODZIN!
                     df_rank["Datetime"] = pd.to_datetime(df_rank["DataCzas"], format="%Y-%m-%d %H:%M:%S", errors='coerce')
                     df_rank = df_rank.dropna(subset=['Datetime'])
                     limit_czasu = datetime.now() - timedelta(hours=12)
@@ -628,7 +640,7 @@ else:
                         st.markdown("---")
                         for idx, row in df_filtrowane.iterrows():
                             m = "🥇" if idx == 0 else ("🥈" if idx == 1 else ("🥉" if idx == 2 else f"**{idx+1}.**"))
-                            c_bg = "#FFF9C4" if idx == 0 else "#f9f9f9" # Złoty kolor dla zwycięzcy
+                            c_bg = "#FFF9C4" if idx == 0 else "#f9f9f9" 
                             c_b = "#D4AC0D" if idx == 0 else "#ccc"
                             st.markdown(f"""
                             <div style='background-color: {c_bg}; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid {c_b};'>
@@ -639,7 +651,7 @@ else:
                             """, unsafe_allow_html=True)
 
     # --- ZAKŁADKA: EINSTELLUNGEN ---
-    with tab_settings:
+    elif wybrana_zakladka == T[lang]["menu_settings"]:
         st.write(f"**{T[lang]['lang_label']}**")
         st.radio("Język", ["DE", "PL"], index=0 if lang=="DE" else 1, horizontal=True, key="lang_sel", on_change=zmiana_jezyka, label_visibility="collapsed")
         st.divider()
