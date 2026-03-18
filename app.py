@@ -13,11 +13,7 @@ st.set_page_config(page_title="SFT Schießzettel", layout="centered")
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa" 
 ADRES_APLIKACJI = "https://sft-schiesszettel.streamlit.app/"
-
-# TARCZA ANTY-BOTOWA! 
 KOD_KLUBU = "SFT"
-
-# --- DYSTANSE ---
 dystanse_lista = ["18m", "20m", "30m", "40m", "50m", "60m", "70m"]
 
 # --- SŁOWNIK JĘZYKOWY (PL / DE) ---
@@ -28,11 +24,14 @@ T = {
         "menu_score": "Schießzettel",
         "menu_multi": "Mini-Turniej",
         "menu_stats": "Statystyki",
+        "menu_calendar": "Kalendarz",
         "menu_settings": "Ustawienia",
         "home_welcome": "Witaj",
         "home_last_training": "Ostatni trening:",
         "home_record": "Twój rekord na",
         "home_no_data": "Nie masz jeszcze żadnych wyników. Czas na trening!",
+        "upcoming_events": "📅 Nadchodzące wydarzenia",
+        "no_events": "Brak zaplanowanych wydarzeń.",
         "training": "Trening",
         "tournament": "Turniej",
         "event_name": "Nazwa turnieju:",
@@ -54,7 +53,7 @@ T = {
         "finish": "💾 Zakończ i Zapisz w Google Sheets",
         "sum_10_x": "Suma 10+X:",
         "only_x": "Same X:",
-        "round_fin": "✅ Runda 1 (Zakończona - kliknij, aby rozwinąć)",
+        "round_fin": "✅ Runda 1 (Zakończona)",
         "bow_setup": "🏹 Łuk (Bogen-Setup)",
         "draw_weight": "Siła (Zuggewicht) [lbs]",
         "brace_height": "Wys. cięciwy (Standhöhe) [cm/in]",
@@ -67,13 +66,15 @@ T = {
         "arr_point": "Waga grotu (Spitze) [gr]",
         "visier": "🔭 Celownik (Visier)",
         "choose_dist_settings": "Zaznacz widoczne dystanse na torze:",
-        "dl_equip_txt": "📥 Pobierz profil sprzętu (TXT)",
+        "dl_equip_txt": "📥 Pobierz profil sprzętu",
         "dl_stats_csv": "📥 Pobierz statystyki (CSV)",
-        "rank_title": "🏆 Tabela Wyników na Żywo (Ważna 12 godzin!)",
+        "rank_title": "🏆 Tabela Wyników (Ważna 12 godzin!)",
         "rank_btn": "🔄 Odśwież tabelę",
         "rank_empty": "Brak wyników z ostatnich 12 godzin dla tego kodu. Bądź pierwszy!",
         "stat_no_data": "Brak danych dla tego dystansu. Idź postrzelać! 🏹",
-        "stat_metric": "Pokaż na wykresie:"
+        "stat_metric": "Pokaż na wykresie:",
+        "club_cal": "Kalendarz Klubu",
+        "my_diary": "Mój Dziennik Treningowy"
     },
     "DE": {
         "title": "🏹 Schießzettel",
@@ -81,11 +82,14 @@ T = {
         "menu_score": "Schießzettel",
         "menu_multi": "Mini-Turnier",
         "menu_stats": "Statistiken",
+        "menu_calendar": "Kalender",
         "menu_settings": "Einstellungen",
         "home_welcome": "Willkommen",
         "home_last_training": "Dein letztes Training:",
         "home_record": "Dein Rekord auf",
         "home_no_data": "Noch keine Ergebnisse vorhanden. Zeit für ein Training!",
+        "upcoming_events": "📅 Kommende Ereignisse",
+        "no_events": "Keine geplanten Ereignisse.",
         "training": "Training",
         "tournament": "Turnier",
         "event_name": "Turniername:",
@@ -107,7 +111,7 @@ T = {
         "finish": "💾 Beenden & Speichern",
         "sum_10_x": "Summe 10+X:",
         "only_x": "Nur X:",
-        "round_fin": "✅ Runde 1 (Beendet - zum Aufklappen klicken)",
+        "round_fin": "✅ Runde 1 (Beendet)",
         "bow_setup": "🏹 Bogen-Setup",
         "draw_weight": "Zuggewicht [lbs]",
         "brace_height": "Standhöhe [cm/in]",
@@ -126,7 +130,9 @@ T = {
         "rank_btn": "🔄 Tabelle aktualisieren",
         "rank_empty": "Keine Ergebnisse aus den letzten 12 Stunden für diesen Code. Sei der Erste!",
         "stat_no_data": "Keine Daten für diese Distanz. Geh schießen! 🏹",
-        "stat_metric": "Zeige im Diagramm:"
+        "stat_metric": "Zeige im Diagramm:",
+        "club_cal": "Vereinskalender",
+        "my_diary": "Mein Trainingstagebuch"
     }
 }
 
@@ -141,7 +147,6 @@ if 'started' not in st.session_state:
 
 lang = st.session_state.lang
 
-# --- BAZA I USTAWIENIA ---
 def get_autosave_file(): return f"autosave_{st.session_state.zalogowany_zawodnik}.json"
 
 def save_user_settings():
@@ -266,7 +271,6 @@ def zapisz_do_arkusza(dane_treningu, statystyki):
         return True
     except: return False
 
-# --- MULTIPLAYER (Z LOGIKĄ 12 GODZIN) ---
 def zapisz_wynik_grupowy(zawodnik, kod, punkty, x10, x):
     try:
         klucz_tekst = st.secrets["google_credentials"]
@@ -276,7 +280,6 @@ def zapisz_wynik_grupowy(zawodnik, kod, punkty, x10, x):
         except:
             ws = sh.add_worksheet(title="Wyniki_Grupowe_V2", rows="1000", cols="6")
             ws.append_row(["DataCzas", "Kod", "Zawodnik", "Punkty", "10_i_X", "Same X"])
-            
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ws.append_row([now_str, str(kod).strip(), zawodnik, punkty, x10, x])
         st.cache_data.clear()
@@ -290,7 +293,42 @@ def pobierz_ranking():
         return pd.DataFrame(gc.open(NAZWA_ARKUSZA).worksheet("Wyniki_Grupowe_V2").get_all_records())
     except: return pd.DataFrame()
 
-# --- SYSTEM PUNKTACJI W TLE ---
+# --- NOWOŚĆ: KALENDARZ KLUBOWY ---
+@st.cache_data(ttl=60)
+def pobierz_terminarz():
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
+        sh = gc.open(NAZWA_ARKUSZA)
+        try: ws = sh.worksheet("Terminarz")
+        except:
+            ws = sh.add_worksheet(title="Terminarz", rows="100", cols="2")
+            ws.append_row(["Data (DD.MM.YYYY)", "Nazwa Wydarzenia"])
+            # Przykładowe wydarzenie na start
+            ws.append_row([(date.today() + timedelta(days=7)).strftime("%d.%m.%Y"), "SFT Vereinsmeisterschaft"])
+            return pd.DataFrame()
+            
+        zapisy = ws.get_all_records()
+        if not zapisy: return pd.DataFrame()
+        
+        df = pd.DataFrame(zapisy)
+        # Bierzemy tylko pierwszą i drugą kolumnę niezależnie od nazwy nagłówka
+        kolumna_data = df.columns[0]
+        kolumna_nazwa = df.columns[1]
+        
+        df['Datetime'] = pd.to_datetime(df[kolumna_data].astype(str), format='%d.%m.%Y', errors='coerce')
+        df = df.dropna(subset=['Datetime'])
+        
+        # Filtrujemy tylko przyszłe (lub dzisiejsze) wydarzenia
+        today = pd.to_datetime(date.today())
+        df = df[df['Datetime'] >= today].sort_values('Datetime')
+        
+        # Standaryzujemy nazwy dla naszej aplikacji
+        df = df.rename(columns={kolumna_data: 'Data', kolumna_nazwa: 'Nazwa'})
+        return df
+    except: return pd.DataFrame()
+
+
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
         with open(get_autosave_file(), "w") as f: 
@@ -510,18 +548,18 @@ if st.session_state.started:
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
 # ---------------------------------------------------------------------
 else:
-    # --- NOWE MAGICZNE MENU ---
+    # --- NOWE MAGICZNE MENU (TERAZ Z 6 ZAKŁADKAMI) ---
     with st.container():
         wybrana_zakladka = option_menu(
             menu_title=None,
-            options=[T[lang]["menu_home"], T[lang]["menu_score"], T[lang]["menu_multi"], T[lang]["menu_stats"], T[lang]["menu_settings"]], 
-            icons=['house', 'bullseye', 'trophy', 'graph-up', 'gear'], 
+            options=[T[lang]["menu_home"], T[lang]["menu_score"], T[lang]["menu_multi"], T[lang]["menu_stats"], T[lang]["menu_calendar"], T[lang]["menu_settings"]], 
+            icons=['house', 'bullseye', 'trophy', 'graph-up', 'calendar-date', 'gear'], 
             default_index=0, 
             orientation="horizontal",
             styles={
                 "container": {"padding": "0!important", "background-color": "#ffffff", "border": "1px solid #ddd", "border-radius": "10px", "margin-bottom": "20px"},
-                "icon": {"color": "#D4AC0D", "font-size": "16px"}, 
-                "nav-link": {"font-size": "13px", "text-align": "center", "margin":"0px", "--hover-color": "#f4f4f4"},
+                "icon": {"color": "#D4AC0D", "font-size": "15px"}, 
+                "nav-link": {"font-size": "12px", "text-align": "center", "margin":"0px", "padding": "10px 5px", "--hover-color": "#f4f4f4"},
                 "nav-link-selected": {"background-color": "#2E8B57", "font-weight": "bold", "color": "white"},
             }
         )
@@ -542,9 +580,8 @@ else:
             
             rekord = df_historia[df_historia['Dystans'] == ostatni_dystans]['Punkty'].max()
 
-            # Nowa, super kompaktowa karta ostatniego treningu i rekordu
             st.markdown(f"""
-            <div style='background-color: #f9f9f9; padding: 12px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'>
+            <div style='background-color: #f9f9f9; padding: 12px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 20px;'>
                 <p style='margin: 0; font-size: 14px; color: gray;'>{T[lang]['home_last_training']}</p>
                 <p style='margin: 5px 0; font-size: 16px; font-weight: bold;'>📅 {ostatnia_data} &nbsp;|&nbsp; 🎯 {ostatni_dystans} &nbsp;|&nbsp; 🏅 {ostatnie_punkty} pts</p>
                 <hr style='margin: 8px 0; border: none; border-top: 1px solid #ddd;'>
@@ -552,6 +589,21 @@ else:
             </div>
             """, unsafe_allow_html=True)
             
+        # NOWOŚĆ: 3 NAJBLIŻSZE WYDARZENIA KLUBOWE
+        st.write(f"**{T[lang]['upcoming_events']}**")
+        df_term = pobierz_terminarz()
+        if df_term.empty:
+            st.info(T[lang]["no_events"])
+        else:
+            top3 = df_term.head(3)
+            for _, row in top3.iterrows():
+                st.markdown(f"""
+                <div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+                    <b style='font-size: 14px; color: #333;'>📅 {row['Data']}</b><br>
+                    <span style='font-size: 15px; color: #000;'>{row['Nazwa']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
         st.write("")
         btn_wa_txt = "🟢 App über WhatsApp teilen" if lang == "DE" else "🟢 Udostępnij aplikację przez WhatsApp"
         st.markdown(f"""
@@ -564,7 +616,7 @@ else:
 
     # --- ZAKŁADKA: SCHIESSZETTEL ---
     elif wybrana_zakladka == T[lang]["menu_score"]:
-        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>🎯 {T[lang]['menu_score']} / Setup</p></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>🎯 {T[lang]['menu_score']} Setup</p></div>", unsafe_allow_html=True)
         
         event_type = st.radio("typ_wydarzenia", [T[lang]["training"], T[lang]["tournament"]], horizontal=True, label_visibility="collapsed")
         event_name = "-"
@@ -747,6 +799,47 @@ else:
                     mime='text/csv', 
                     use_container_width=True
                 )
+
+    # --- ZAKŁADKA: KALENDARZ (NOWOŚĆ) ---
+    elif wybrana_zakladka == T[lang]["menu_calendar"]:
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>📅 {T[lang]['menu_calendar']}</p></div>", unsafe_allow_html=True)
+        
+        tab_club, tab_diary = st.tabs([T[lang]["club_cal"], T[lang]["my_diary"]])
+        
+        with tab_club:
+            df_term = pobierz_terminarz()
+            if df_term.empty:
+                st.info(T[lang]["no_events"])
+            else:
+                for _, row in df_term.iterrows():
+                    st.markdown(f"""
+                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 15px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);'>
+                        <h4 style='margin: 0 0 5px 0; color: #333;'>{row['Nazwa']}</h4>
+                        <b style='color: #2E8B57;'>📅 {row['Data']}</b>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+        with tab_diary:
+            df_hist = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
+            if df_hist.empty:
+                st.info(T[lang]["home_no_data"])
+            else:
+                st.write("Twoja historia z ostatnich dni:" if lang == "PL" else "Deine Geschichte der letzten Tage:")
+                # Pokazujemy 10 ostatnich wpisów odwróconych (od najnowszego)
+                ostatnie = df_hist.tail(10).iloc[::-1]
+                for _, row in ostatnie.iterrows():
+                    st.markdown(f"""
+                    <div style='background-color: #ffffff; border: 1px solid #ddd; padding: 10px; border-radius: 5px; border-left: 5px solid #2E8B57; margin-bottom: 8px;'>
+                        <div style='display: flex; justify-content: space-between;'>
+                            <b>📅 {row['Data']}</b>
+                            <span style='color: gray; font-size: 12px;'>{row['Czas']}</span>
+                        </div>
+                        <div style='margin-top: 5px; font-size: 15px;'>
+                            🎯 <b>{row['Dystans']}</b> | 🏅 <b>{row['Punkty']}</b> pts | 📈 {row.get('Skuteczność %', '')}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
 
     # --- ZAKŁADKA: EINSTELLUNGEN ---
     elif wybrana_zakladka == T[lang]["menu_settings"]:
