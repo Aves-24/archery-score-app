@@ -510,7 +510,7 @@ if st.session_state.started:
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
 # ---------------------------------------------------------------------
 else:
-    # --- NOWE MAGICZNE MENU (TERAZ Z 5 ZAKŁADKAMI) ---
+    # --- NOWE MAGICZNE MENU ---
     with st.container():
         wybrana_zakladka = option_menu(
             menu_title=None,
@@ -528,8 +528,7 @@ else:
 
     # --- ZAKŁADKA: HOME ---
     if wybrana_zakladka == T[lang]["menu_home"]:
-        st.markdown(f"### {T[lang]['home_welcome']}, {st.session_state.zalogowany_zawodnik}! 🎯")
-        st.divider()
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 18px; font-weight: bold;'>🏠 {T[lang]['home_welcome']}, {st.session_state.zalogowany_zawodnik}! 🎯</p></div>", unsafe_allow_html=True)
         
         df_historia = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
         
@@ -545,29 +544,18 @@ else:
 
             # Nowa, super kompaktowa karta ostatniego treningu i rekordu
             st.markdown(f"""
-            <div style='background-color: #f9f9f9; padding: 10px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'>
+            <div style='background-color: #f9f9f9; padding: 12px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'>
                 <p style='margin: 0; font-size: 14px; color: gray;'>{T[lang]['home_last_training']}</p>
-                <p style='margin: 0; font-size: 16px; font-weight: bold;'>📅 {ostatnia_data} &nbsp;|&nbsp; 🎯 {ostatni_dystans} &nbsp;|&nbsp; 🏅 {ostatnie_punkty} pts</p>
-                <hr style='margin: 5px 0;'>
+                <p style='margin: 5px 0; font-size: 16px; font-weight: bold;'>📅 {ostatnia_data} &nbsp;|&nbsp; 🎯 {ostatni_dystans} &nbsp;|&nbsp; 🏅 {ostatnie_punkty} pts</p>
+                <hr style='margin: 8px 0; border: none; border-top: 1px solid #ddd;'>
                 <p style='margin: 0; font-size: 14px; color: #D4AC0D;'>🏆 {T[lang]['home_record']} <b>{ostatni_dystans}</b>: <b>{rekord} pts</b></p>
             </div>
             """, unsafe_allow_html=True)
             
-            # Mini wykres skuteczności z ostatnich 5 treningów
-            st.write("")
-            ostatnie_5 = df_historia.tail(5).copy()
-            ostatnie_5["Trening"] = range(1, len(ostatnie_5) + 1)
-            chart = alt.Chart(ostatnie_5).mark_line(point=True, color='#2E8B57').encode(
-                x=alt.X('Trening:O', axis=alt.Axis(labels=False, title='Letzte 5 Sessions' if lang=="DE" else 'Ostatnie 5 sesji')),
-                y=alt.Y('Skuteczność %:Q', title='Trefferquote %' if lang=="DE" else 'Skuteczność %', scale=alt.Scale(zero=False)),
-                tooltip=['Data', 'Punkty', 'Dystans', 'Skuteczność %']
-            ).properties(height=200)
-            st.altair_chart(chart, use_container_width=True)
-            
         st.write("")
         btn_wa_txt = "🟢 App über WhatsApp teilen" if lang == "DE" else "🟢 Udostępnij aplikację przez WhatsApp"
         st.markdown(f"""
-            <div style='text-align: center; margin-top: 20px;'>
+            <div style='text-align: center; margin-top: 10px;'>
                 <a href="whatsapp://send?text=Hallo! 👋 Schau dir unsere Vereins-App an: {ADRES_APLIKACJI}" target="_blank" style="text-decoration: none; background-color: #25D366; color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px;">
                     {btn_wa_txt}
                 </a>
@@ -576,6 +564,8 @@ else:
 
     # --- ZAKŁADKA: SCHIESSZETTEL ---
     elif wybrana_zakladka == T[lang]["menu_score"]:
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>🎯 {T[lang]['menu_score']} / Setup</p></div>", unsafe_allow_html=True)
+        
         event_type = st.radio("typ_wydarzenia", [T[lang]["training"], T[lang]["tournament"]], horizontal=True, label_visibility="collapsed")
         event_name = "-"
         if event_type == T[lang]["tournament"]:
@@ -605,6 +595,8 @@ else:
 
     # --- ZAKŁADKA: MINI-TURNIER ---
     elif wybrana_zakladka == T[lang]["menu_multi"]:
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>⚔️ {T[lang]['menu_multi']} Setup</p></div>", unsafe_allow_html=True)
+        
         st.write(f"**{T[lang]['room_code']}**")
         kod_meczu = st.text_input("Kod Pokoju", max_chars=2, placeholder="np. 07", label_visibility="collapsed")
         
@@ -631,8 +623,8 @@ else:
                 save_backup()
                 st.rerun()
                 
-        st.divider()
-        st.markdown(f"### {T[lang]['rank_title']}")
+        st.write("")
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>{T[lang]['rank_title']}</p></div>", unsafe_allow_html=True)
         
         col_r1, col_r2 = st.columns([2,1])
         szukany_kod = col_r1.text_input("Szukaj Kodu", max_chars=2, key="search_code", placeholder="z.B. 12", label_visibility="collapsed")
@@ -671,7 +663,9 @@ else:
 
     # --- ZAKŁADKA: STATYSTYKI ---
     elif wybrana_zakladka == T[lang]["menu_stats"]:
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['menu_stats']}</p></div>", unsafe_allow_html=True)
         st.markdown("""<style>div[data-testid="stVegaLiteChart"] { width: 100%; overflow-x: auto; }</style>""", unsafe_allow_html=True)
+        
         df = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
         
         if df.empty:
@@ -756,27 +750,26 @@ else:
 
     # --- ZAKŁADKA: EINSTELLUNGEN ---
     elif wybrana_zakladka == T[lang]["menu_settings"]:
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>⚙️ {T[lang]['menu_settings']}</p></div>", unsafe_allow_html=True)
+        
         st.write(f"**{T[lang]['lang_label']}**")
         st.radio("Język", ["DE", "PL"], index=0 if lang=="DE" else 1, horizontal=True, key="lang_sel", on_change=zmiana_jezyka, label_visibility="collapsed")
-        st.divider()
         
-        st.markdown(f"#### {T[lang]['bow_setup']}")
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 8px 12px; border-radius: 6px; border-left: 4px solid #2E8B57; margin: 15px 0 10px 0;'><b style='font-size: 15px;'>{T[lang]['bow_setup']}</b></div>", unsafe_allow_html=True)
         c_bow1, c_bow2 = st.columns(2)
         c_bow1.text_input(T[lang]['draw_weight'], key="zuggewicht")
         c_bow2.text_input(T[lang]['brace_height'], key="standhoehe")
         c_bow1.text_input(T[lang]['tiller'], key="tiller")
         c_bow2.text_input(T[lang]['nock_point'], key="nockpunkt")
         
-        st.write("")
-        st.markdown(f"#### {T[lang]['arrows_setup']}")
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 8px 12px; border-radius: 6px; border-left: 4px solid #2E8B57; margin: 15px 0 10px 0;'><b style='font-size: 15px;'>{T[lang]['arrows_setup']}</b></div>", unsafe_allow_html=True)
         c_arr1, c_arr2 = st.columns(2)
         c_arr1.text_input(T[lang]['arr_model'], key="pfeil_modell")
         c_arr2.text_input(T[lang]['arr_spine'], key="pfeil_spine")
         c_arr1.text_input(T[lang]['arr_len'], key="pfeil_laenge")
         c_arr2.text_input(T[lang]['arr_point'], key="pfeil_spitze")
         
-        st.write("")
-        st.markdown(f"#### {T[lang]['visier']}")
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 8px 12px; border-radius: 6px; border-left: 4px solid #2E8B57; margin: 15px 0 10px 0;'><b style='font-size: 15px;'>{T[lang]['visier']}</b></div>", unsafe_allow_html=True)
         st.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['choose_dist_settings']}</span>", unsafe_allow_html=True)
         
         c_vis1, c_vis2, c_vis3, c_vis4 = st.columns([0.8, 1, 1, 1])
