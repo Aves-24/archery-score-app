@@ -30,7 +30,7 @@ T = {
         "home_last_training": "Ostatni trening:",
         "home_record": "Twój rekord na",
         "home_no_data": "Nie masz jeszcze żadnych wyników. Czas na trening!",
-        "upcoming_events": "📅 Nadchodzące wydarzenia",
+        "upcoming_events": "📅 Twoje nadchodzące wyjazdy/treningi",
         "no_events": "Brak zaplanowanych wydarzeń.",
         "training": "Trening",
         "tournament": "Turniej",
@@ -50,7 +50,8 @@ T = {
         "add_6": "➕ 6 strzał",
         "add_1": "➕ 1 strzała",
         "undo": "➖ Cofnij",
-        "finish": "💾 Zakończ i Zapisz w Google Sheets",
+        "finish": "💾 Zakończ i Zapisz",
+        "cancel_btn": "❌ Anuluj (bez zapisu)",
         "sum_10_x": "Suma 10+X:",
         "only_x": "Same X:",
         "round_fin": "✅ Runda 1 (Zakończona)",
@@ -73,12 +74,14 @@ T = {
         "rank_empty": "Brak wyników z ostatnich 12 godzin dla tego kodu. Bądź pierwszy!",
         "stat_no_data": "Brak danych dla tego dystansu. Idź postrzelać! 🏹",
         "stat_metric": "Pokaż na wykresie:",
-        "club_cal": "Kalendarz Klubu",
         "my_plan": "Mój Terminarz",
         "my_diary": "Mój Dziennik",
         "add_event": "➕ Dodaj wydarzenie",
         "event_date": "Data",
-        "event_event_name": "Nazwa wydarzenia"
+        "event_event_name": "Nazwa wydarzenia",
+        "event_address": "Adres (opcjonalnie)",
+        "event_link": "Link Google Maps (opcjonalnie)",
+        "nav_btn": "Nawiguj"
     },
     "DE": {
         "title": "🏹 Schießzettel",
@@ -92,7 +95,7 @@ T = {
         "home_last_training": "Dein letztes Training:",
         "home_record": "Dein Rekord auf",
         "home_no_data": "Noch keine Ergebnisse vorhanden. Zeit für ein Training!",
-        "upcoming_events": "📅 Kommende Ereignisse",
+        "upcoming_events": "📅 Deine nächsten Termine",
         "no_events": "Keine geplanten Ereignisse.",
         "training": "Training",
         "tournament": "Turnier",
@@ -113,6 +116,7 @@ T = {
         "add_1": "➕ 1 Pfeil",
         "undo": "➖ Zurück",
         "finish": "💾 Beenden & Speichern",
+        "cancel_btn": "❌ Abbrechen (ohne Speichern)",
         "sum_10_x": "Summe 10+X:",
         "only_x": "Nur X:",
         "round_fin": "✅ Runde 1 (Beendet)",
@@ -135,12 +139,14 @@ T = {
         "rank_empty": "Keine Ergebnisse aus den letzten 12 Stunden für diesen Code. Sei der Erste!",
         "stat_no_data": "Keine Daten für diese Distanz. Geh schießen! 🏹",
         "stat_metric": "Zeige im Diagramm:",
-        "club_cal": "Vereinskalender",
         "my_plan": "Mein Terminplan",
         "my_diary": "Mein Tagebuch",
         "add_event": "➕ Ereignis hinzufügen",
         "event_date": "Datum",
-        "event_event_name": "Name des Ereignisses"
+        "event_event_name": "Name des Ereignisses",
+        "event_address": "Adresse (optional)",
+        "event_link": "Google Maps Link (optional)",
+        "nav_btn": "Route starten"
     }
 }
 
@@ -301,36 +307,7 @@ def pobierz_ranking():
         return pd.DataFrame(gc.open(NAZWA_ARKUSZA).worksheet("Wyniki_Grupowe_V2").get_all_records())
     except: return pd.DataFrame()
 
-# --- KALENDARZ KLUBOWY ---
-@st.cache_data(ttl=60)
-def pobierz_terminarz():
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        sh = gc.open(NAZWA_ARKUSZA)
-        try: ws = sh.worksheet("Terminarz")
-        except:
-            ws = sh.add_worksheet(title="Terminarz", rows="100", cols="2")
-            ws.append_row(["Data (DD.MM.YYYY)", "Nazwa Wydarzenia"])
-            ws.append_row([(date.today() + timedelta(days=7)).strftime("%d.%m.%Y"), "SFT Vereinsmeisterschaft"])
-            return pd.DataFrame()
-            
-        zapisy = ws.get_all_records()
-        if not zapisy: return pd.DataFrame()
-        df = pd.DataFrame(zapisy)
-        kolumna_data = df.columns[0]
-        kolumna_nazwa = df.columns[1]
-        
-        df['Datetime'] = pd.to_datetime(df[kolumna_data].astype(str), format='%d.%m.%Y', errors='coerce')
-        df = df.dropna(subset=['Datetime'])
-        
-        today = pd.to_datetime(date.today())
-        df = df[df['Datetime'] >= today].sort_values('Datetime')
-        df = df.rename(columns={kolumna_data: 'Data', kolumna_nazwa: 'Nazwa'})
-        return df
-    except: return pd.DataFrame()
-
-# --- KALENDARZ OSOBISTY (PANCERNY!) ---
+# --- KALENDARZ OSOBISTY (TERAZ Z NAWIGACJĄ I ADRESEM) ---
 @st.cache_data(ttl=5)
 def pobierz_kalendarz_osobisty(zawodnik):
     try:
@@ -339,8 +316,8 @@ def pobierz_kalendarz_osobisty(zawodnik):
         sh = gc.open(NAZWA_ARKUSZA)
         try: ws = sh.worksheet("Kalendarz_Osobisty")
         except:
-            ws = sh.add_worksheet(title="Kalendarz_Osobisty", rows="100", cols="4")
-            ws.append_row(["ID", "Zawodnik", "Data", "Nazwa"])
+            ws = sh.add_worksheet(title="Kalendarz_Osobisty", rows="100", cols="6")
+            ws.append_row(["ID", "Zawodnik", "Data", "Nazwa", "Adres", "Link"])
             return pd.DataFrame()
         zapisy = ws.get_all_records()
         if not zapisy: return pd.DataFrame()
@@ -348,14 +325,13 @@ def pobierz_kalendarz_osobisty(zawodnik):
         return df[df["Zawodnik"] == zawodnik]
     except: return pd.DataFrame()
 
-def dodaj_kalendarz_osobisty(zawodnik, data, nazwa):
+def dodaj_kalendarz_osobisty(zawodnik, data, nazwa, adres, link):
     try:
         klucz_tekst = st.secrets["google_credentials"]
         gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
         ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
-        # Dodajemy litery "EV-" żeby Arkusz ZAWSZE traktował to jako tekst, a nie liczbę!
         event_id = f"EV-{int(time.time() * 1000)}"
-        ws.append_row([event_id, zawodnik, data.strftime("%d.%m.%Y"), nazwa])
+        ws.append_row([event_id, zawodnik, data.strftime("%d.%m.%Y"), nazwa, adres, link])
         st.cache_data.clear()
         return True
     except: return False
@@ -366,17 +342,14 @@ def usun_kalendarz_osobisty(event_id):
         gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
         ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
         
-        # Pobieramy wszystko i szukamy po stronie Pythona (omijamy błędy Google Sheets)
         zapisy = ws.get_all_records()
         for i, row in enumerate(zapisy):
             if str(row.get("ID", "")) == str(event_id):
-                # i to indeks tablicy Pythona (od 0). W arkuszu wiersz 1 to nagłówki, więc dane zaczynają się od 2.
                 ws.delete_row(i + 2) 
                 st.cache_data.clear()
                 return True
         return False
     except: return False
-
 
 # --- SYSTEM PUNKTACJI W TLE ---
 def save_backup():
@@ -584,13 +557,20 @@ if st.session_state.started:
     c3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
 
     st.write("")
-    if st.button(T[lang]["finish"], type="primary", use_container_width=True):
+    
+    # ZMIANA: Dodano przycisk Anuluj obok Zapisz
+    col_end1, col_end2 = st.columns([2, 1])
+    if col_end1.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": scores.count("9"), "M": scores.count("M")}
         if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
             kod_meczu = st.session_state.event_info.get("KodMeczu", "")
             if kod_meczu: zapisz_wynik_grupowy(st.session_state.zalogowany_zawodnik, kod_meczu, total_points, count_10_total, count_x)
             st.success("✅ Gespeichert!" if lang=="DE" else "✅ Zapisano!")
             time.sleep(1.5)
+        reset()
+        st.rerun()
+        
+    if col_end2.button(T[lang]["cancel_btn"], use_container_width=True):
         reset()
         st.rerun()
 
@@ -638,19 +618,32 @@ else:
             </div>
             """, unsafe_allow_html=True)
             
+        # ZMIANA: Pokazujemy teraz NADCHODZĄCE PRYWATNE WYDARZENIA Z MAPĄ na Home!
         st.write(f"**{T[lang]['upcoming_events']}**")
-        df_term = pobierz_terminarz()
-        if df_term.empty:
+        df_my_cal = pobierz_kalendarz_osobisty(st.session_state.zalogowany_zawodnik)
+        if df_my_cal.empty:
             st.info(T[lang]["no_events"])
         else:
-            top3 = df_term.head(3)
-            for _, row in top3.iterrows():
-                st.markdown(f"""
-                <div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-                    <b style='font-size: 14px; color: #333;'>📅 {row['Data']}</b><br>
-                    <span style='font-size: 15px; color: #000;'>{row['Nazwa']}</span>
-                </div>
-                """, unsafe_allow_html=True)
+            df_my_cal['Datetime'] = pd.to_datetime(df_my_cal['Data'], format='%d.%m.%Y', errors='coerce')
+            df_my_cal = df_my_cal.dropna(subset=['Datetime'])
+            limit_czasu = pd.to_datetime(date.today())
+            df_my_cal = df_my_cal[df_my_cal['Datetime'] >= limit_czasu].sort_values('Datetime')
+            
+            if df_my_cal.empty:
+                st.info(T[lang]["no_events"])
+            else:
+                top3 = df_my_cal.head(3)
+                for _, row in top3.iterrows():
+                    adres_text = row.get("Adres", "")
+                    link_text = row.get("Link", "")
+                    nav_html = f"<br><a href='{link_text}' target='_blank' style='text-decoration: none; font-size: 13px; color: #1E88E5;'>📍 {T[lang]['nav_btn']}</a>" if link_text else ""
+                    adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span>" if adres_text else ""
+                    
+                    st.markdown(f"""
+                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+                        <b style='font-size: 14px; color: #333;'>📅 {row['Data']}</b> | <span style='font-size: 15px; color: #000;'>{row['Nazwa']}</span>{adres_html}{nav_html}
+                    </div>
+                    """, unsafe_allow_html=True)
 
         st.write("")
         btn_wa_txt = "🟢 App über WhatsApp teilen" if lang == "DE" else "🟢 Udostępnij aplikację przez WhatsApp"
@@ -848,33 +841,25 @@ else:
                     use_container_width=True
                 )
 
-    # --- ZAKŁADKA: KALENDARZ ---
+    # --- ZAKŁADKA: KALENDARZ (ZMODYFIKOWANY) ---
     elif wybrana_zakladka == T[lang]["menu_calendar"]:
         st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>📅 {T[lang]['menu_calendar']}</p></div>", unsafe_allow_html=True)
         
-        tab_club, tab_my_plan, tab_diary = st.tabs([T[lang]["club_cal"], T[lang]["my_plan"], T[lang]["my_diary"]])
-        
-        with tab_club:
-            df_term = pobierz_terminarz()
-            if df_term.empty:
-                st.info(T[lang]["no_events"])
-            else:
-                for _, row in df_term.iterrows():
-                    st.markdown(f"""
-                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 15px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);'>
-                        <h4 style='margin: 0 0 5px 0; color: #333;'>{row['Nazwa']}</h4>
-                        <b style='color: #2E8B57;'>📅 {row['Data']}</b>
-                    </div>
-                    """, unsafe_allow_html=True)
+        tab_my_plan, tab_diary = st.tabs([T[lang]["my_plan"], T[lang]["my_diary"]])
                     
         with tab_my_plan:
             with st.form("add_my_event", clear_on_submit=True):
                 c1, c2 = st.columns([1, 2])
                 nowa_data = c1.date_input(T[lang]["event_date"], format="DD.MM.YYYY")
                 nowa_nazwa = c2.text_input(T[lang]["event_event_name"])
+                
+                c3, c4 = st.columns(2)
+                nowy_adres = c3.text_input(T[lang]["event_address"])
+                nowy_link = c4.text_input(T[lang]["event_link"])
+                
                 if st.form_submit_button(T[lang]["add_event"]):
                     if nowa_nazwa.strip():
-                        dodaj_kalendarz_osobisty(st.session_state.zalogowany_zawodnik, nowa_data, nowa_nazwa)
+                        dodaj_kalendarz_osobisty(st.session_state.zalogowany_zawodnik, nowa_data, nowa_nazwa, nowy_adres, nowy_link)
                         st.rerun()
                     else:
                         st.error("Podaj nazwę!" if lang == "PL" else "Bitte Namen eingeben!")
@@ -889,7 +874,12 @@ else:
                 for _, row in df_my_cal.iterrows():
                     col_e1, col_e2 = st.columns([5, 1])
                     with col_e1:
-                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}</div>", unsafe_allow_html=True)
+                        adres_text = row.get("Adres", "")
+                        link_text = row.get("Link", "")
+                        nav_html = f"<br><a href='{link_text}' target='_blank' style='text-decoration: none; font-size: 13px; color: #1E88E5;'>📍 {T[lang]['nav_btn']}</a>" if link_text else ""
+                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span>" if adres_text else ""
+                        
+                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}{adres_html}{nav_html}</div>", unsafe_allow_html=True)
                     with col_e2:
                         st.write("") 
                         if st.button("🗑️", key=f"del_{row['ID']}"):
