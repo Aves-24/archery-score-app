@@ -6,7 +6,7 @@ from datetime import datetime, date, timedelta
 import gspread
 import pandas as pd
 import altair as alt
-import urllib.parse  # NOWOŚĆ: Do kodowania adresów na linki Google Maps
+import urllib.parse
 from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered")
@@ -306,7 +306,7 @@ def pobierz_ranking():
         return pd.DataFrame(gc.open(NAZWA_ARKUSZA).worksheet("Wyniki_Grupowe_V2").get_all_records())
     except: return pd.DataFrame()
 
-# --- KALENDARZ OSOBISTY Z GOOGLE MAPS ---
+# --- PANCERNY KALENDARZ OSOBISTY Z GOOGLE MAPS ---
 @st.cache_data(ttl=5)
 def pobierz_kalendarz_osobisty(zawodnik):
     try:
@@ -318,10 +318,17 @@ def pobierz_kalendarz_osobisty(zawodnik):
             ws = sh.add_worksheet(title="Kalendarz_Osobisty", rows="100", cols="6")
             ws.append_row(["ID", "Zawodnik", "Data", "Nazwa", "Adres", "Link"])
             return pd.DataFrame()
-        zapisy = ws.get_all_records()
-        if not zapisy: return pd.DataFrame()
-        df = pd.DataFrame(zapisy)
-        return df[df["Zawodnik"] == zawodnik]
+            
+        zapisy = ws.get_all_values()
+        if len(zapisy) > 1:
+            headers = ["ID", "Zawodnik", "Data", "Nazwa", "Adres", "Link"]
+            data = []
+            for r in zapisy[1:]:
+                row_data = r + [""] * (6 - len(r))
+                data.append(row_data[:6])
+            df = pd.DataFrame(data, columns=headers)
+            return df[df["Zawodnik"] == zawodnik]
+        return pd.DataFrame()
     except: return pd.DataFrame()
 
 def dodaj_kalendarz_osobisty(zawodnik, data, nazwa, adres, link):
@@ -341,10 +348,10 @@ def usun_kalendarz_osobisty(event_id):
         gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
         ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
         
-        zapisy = ws.get_all_records()
+        zapisy = ws.get_all_values()
         for i, row in enumerate(zapisy):
-            if str(row.get("ID", "")) == str(event_id):
-                ws.delete_row(i + 2) 
+            if str(row[0]) == str(event_id):
+                ws.delete_rows(i + 1) 
                 st.cache_data.clear()
                 return True
         return False
@@ -635,10 +642,10 @@ else:
                     if adres_text:
                         encoded_adres = urllib.parse.quote(adres_text)
                         maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='text-decoration: none; font-size: 13px; color: #1E88E5; font-weight: bold;'>[📍 {T[lang]['nav_btn']}]</a>"
+                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <br><a href='{maps_url}' target='_blank' style='display: inline-block; margin-top: 6px; background-color: #1E88E5; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍 {T[lang]['nav_btn']}</a>"
                     
                     st.markdown(f"""
-                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
                         <b style='font-size: 14px; color: #333;'>📅 {row['Data']}</b> | <span style='font-size: 15px; color: #000;'>{row['Nazwa']}</span>{adres_html}
                     </div>
                     """, unsafe_allow_html=True)
@@ -850,13 +857,10 @@ else:
                 c1, c2 = st.columns([1, 2])
                 nowa_data = c1.date_input(T[lang]["event_date"], format="DD.MM.YYYY")
                 nowa_nazwa = c2.text_input(T[lang]["event_event_name"])
-                
-                # Zmiana - jedno pole tekstowe na adres
                 nowy_adres = st.text_input(T[lang]["event_address"])
                 
                 if st.form_submit_button(T[lang]["add_event"]):
                     if nowa_nazwa.strip():
-                        # Puste pole linku dla zachowania spójności bazy
                         dodaj_kalendarz_osobisty(st.session_state.zalogowany_zawodnik, nowa_data, nowa_nazwa, nowy_adres, "")
                         st.rerun()
                     else:
@@ -877,9 +881,9 @@ else:
                         if adres_text:
                             encoded_adres = urllib.parse.quote(adres_text)
                             maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                            adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='text-decoration: none; font-size: 13px; color: #1E88E5; font-weight: bold;'>[📍 {T[lang]['nav_btn']}]</a>"
+                            adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <br><a href='{maps_url}' target='_blank' style='display: inline-block; margin-top: 6px; background-color: #1E88E5; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍 {T[lang]['nav_btn']}</a>"
                             
-                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
                     with col_e2:
                         st.write("") 
                         if st.button("🗑️", key=f"del_{row['ID']}"):
