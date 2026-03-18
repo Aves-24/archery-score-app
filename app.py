@@ -74,7 +74,11 @@ T = {
         "stat_no_data": "Brak danych dla tego dystansu. Idź postrzelać! 🏹",
         "stat_metric": "Pokaż na wykresie:",
         "club_cal": "Kalendarz Klubu",
-        "my_diary": "Mój Dziennik Treningowy"
+        "my_plan": "Mój Terminarz",
+        "my_diary": "Mój Dziennik",
+        "add_event": "➕ Dodaj wydarzenie",
+        "event_date": "Data",
+        "event_event_name": "Nazwa wydarzenia"
     },
     "DE": {
         "title": "🏹 Schießzettel",
@@ -132,7 +136,11 @@ T = {
         "stat_no_data": "Keine Daten für diese Distanz. Geh schießen! 🏹",
         "stat_metric": "Zeige im Diagramm:",
         "club_cal": "Vereinskalender",
-        "my_diary": "Mein Trainingstagebuch"
+        "my_plan": "Mein Terminplan",
+        "my_diary": "Mein Tagebuch",
+        "add_event": "➕ Ereignis hinzufügen",
+        "event_date": "Datum",
+        "event_event_name": "Name des Ereignisses"
     }
 }
 
@@ -293,7 +301,7 @@ def pobierz_ranking():
         return pd.DataFrame(gc.open(NAZWA_ARKUSZA).worksheet("Wyniki_Grupowe_V2").get_all_records())
     except: return pd.DataFrame()
 
-# --- NOWOŚĆ: KALENDARZ KLUBOWY ---
+# --- KALENDARZ KLUBOWY ---
 @st.cache_data(ttl=60)
 def pobierz_terminarz():
     try:
@@ -304,31 +312,67 @@ def pobierz_terminarz():
         except:
             ws = sh.add_worksheet(title="Terminarz", rows="100", cols="2")
             ws.append_row(["Data (DD.MM.YYYY)", "Nazwa Wydarzenia"])
-            # Przykładowe wydarzenie na start
             ws.append_row([(date.today() + timedelta(days=7)).strftime("%d.%m.%Y"), "SFT Vereinsmeisterschaft"])
             return pd.DataFrame()
             
         zapisy = ws.get_all_records()
         if not zapisy: return pd.DataFrame()
-        
         df = pd.DataFrame(zapisy)
-        # Bierzemy tylko pierwszą i drugą kolumnę niezależnie od nazwy nagłówka
         kolumna_data = df.columns[0]
         kolumna_nazwa = df.columns[1]
         
         df['Datetime'] = pd.to_datetime(df[kolumna_data].astype(str), format='%d.%m.%Y', errors='coerce')
         df = df.dropna(subset=['Datetime'])
         
-        # Filtrujemy tylko przyszłe (lub dzisiejsze) wydarzenia
         today = pd.to_datetime(date.today())
         df = df[df['Datetime'] >= today].sort_values('Datetime')
-        
-        # Standaryzujemy nazwy dla naszej aplikacji
         df = df.rename(columns={kolumna_data: 'Data', kolumna_nazwa: 'Nazwa'})
         return df
     except: return pd.DataFrame()
 
+# --- KALENDARZ OSOBISTY (NOWOŚĆ) ---
+@st.cache_data(ttl=5)
+def pobierz_kalendarz_osobisty(zawodnik):
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
+        sh = gc.open(NAZWA_ARKUSZA)
+        try: ws = sh.worksheet("Kalendarz_Osobisty")
+        except:
+            ws = sh.add_worksheet(title="Kalendarz_Osobisty", rows="100", cols="4")
+            ws.append_row(["ID", "Zawodnik", "Data", "Nazwa"])
+            return pd.DataFrame()
+        zapisy = ws.get_all_records()
+        if not zapisy: return pd.DataFrame()
+        df = pd.DataFrame(zapisy)
+        return df[df["Zawodnik"] == zawodnik]
+    except: return pd.DataFrame()
 
+def dodaj_kalendarz_osobisty(zawodnik, data, nazwa):
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
+        ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
+        event_id = str(int(time.time() * 1000))
+        ws.append_row([event_id, zawodnik, data.strftime("%d.%m.%Y"), nazwa])
+        st.cache_data.clear()
+        return True
+    except: return False
+
+def usun_kalendarz_osobisty(event_id):
+    try:
+        klucz_tekst = st.secrets["google_credentials"]
+        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
+        ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
+        komorka = ws.find(str(event_id), in_column=1)
+        if komorka:
+            ws.delete_rows(komorka.row)
+            st.cache_data.clear()
+            return True
+    except: return False
+
+
+# --- SYSTEM PUNKTACJI W TLE ---
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
         with open(get_autosave_file(), "w") as f: 
@@ -548,7 +592,7 @@ if st.session_state.started:
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
 # ---------------------------------------------------------------------
 else:
-    # --- NOWE MAGICZNE MENU (TERAZ Z 6 ZAKŁADKAMI) ---
+    # --- NOWE MAGICZNE MENU ---
     with st.container():
         wybrana_zakladka = option_menu(
             menu_title=None,
@@ -589,7 +633,6 @@ else:
             </div>
             """, unsafe_allow_html=True)
             
-        # NOWOŚĆ: 3 NAJBLIŻSZE WYDARZENIA KLUBOWE
         st.write(f"**{T[lang]['upcoming_events']}**")
         df_term = pobierz_terminarz()
         if df_term.empty:
@@ -800,11 +843,11 @@ else:
                     use_container_width=True
                 )
 
-    # --- ZAKŁADKA: KALENDARZ (NOWOŚĆ) ---
+    # --- ZAKŁADKA: KALENDARZ ---
     elif wybrana_zakladka == T[lang]["menu_calendar"]:
         st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>📅 {T[lang]['menu_calendar']}</p></div>", unsafe_allow_html=True)
         
-        tab_club, tab_diary = st.tabs([T[lang]["club_cal"], T[lang]["my_diary"]])
+        tab_club, tab_my_plan, tab_diary = st.tabs([T[lang]["club_cal"], T[lang]["my_plan"], T[lang]["my_diary"]])
         
         with tab_club:
             df_term = pobierz_terminarz()
@@ -819,13 +862,40 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
                     
+        with tab_my_plan:
+            with st.form("add_my_event", clear_on_submit=True):
+                c1, c2 = st.columns([1, 2])
+                nowa_data = c1.date_input(T[lang]["event_date"], format="DD.MM.YYYY")
+                nowa_nazwa = c2.text_input(T[lang]["event_event_name"])
+                if st.form_submit_button(T[lang]["add_event"]):
+                    if nowa_nazwa.strip():
+                        dodaj_kalendarz_osobisty(st.session_state.zalogowany_zawodnik, nowa_data, nowa_nazwa)
+                        st.rerun()
+                    else:
+                        st.error("Podaj nazwę!" if lang == "PL" else "Bitte Namen eingeben!")
+                        
+            df_my_cal = pobierz_kalendarz_osobisty(st.session_state.zalogowany_zawodnik)
+            if df_my_cal.empty:
+                st.info(T[lang]["no_events"])
+            else:
+                df_my_cal['Datetime'] = pd.to_datetime(df_my_cal['Data'], format='%d.%m.%Y', errors='coerce')
+                df_my_cal = df_my_cal.sort_values('Datetime')
+                
+                for _, row in df_my_cal.iterrows():
+                    col_e1, col_e2 = st.columns([5, 1])
+                    with col_e1:
+                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}</div>", unsafe_allow_html=True)
+                    with col_e2:
+                        st.write("") # spacer dla wyrównania
+                        if st.button("🗑️", key=f"del_{row['ID']}"):
+                            usun_kalendarz_osobisty(row['ID'])
+                            st.rerun()
+
         with tab_diary:
             df_hist = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
             if df_hist.empty:
                 st.info(T[lang]["home_no_data"])
             else:
-                st.write("Twoja historia z ostatnich dni:" if lang == "PL" else "Deine Geschichte der letzten Tage:")
-                # Pokazujemy 10 ostatnich wpisów odwróconych (od najnowszego)
                 ostatnie = df_hist.tail(10).iloc[::-1]
                 for _, row in ostatnie.iterrows():
                     st.markdown(f"""
