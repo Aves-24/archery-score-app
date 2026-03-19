@@ -14,54 +14,16 @@ import database as db
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT I PANCERNA SIATKA "GRID" DLA TELEFONÓW ---
+# --- UKRYCIE INTERFEJSU STREAMLIT (CZYSTY KOD, BEZ ZEPSUTEGO CSS) ---
 st.markdown("""
     <style>
         header {visibility: hidden;}
         footer {visibility: hidden;}
-        
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
-            max-width: 100% !important;
-            overflow-x: hidden !important; 
         }
         .stDeployButton {display:none;}
-        
-        /* BEZWZGLĘDNE WYMUSZENIE 3 RÓWNYCH KOLUMN NA TELEFONACH */
-        @media screen and (max-width: 768px) {
-            div[data-testid="stHorizontalBlock"] {
-                display: flex !important;
-                flex-direction: row !important;
-                flex-wrap: nowrap !important;
-                width: 100% !important;
-                gap: 4px !important; 
-            }
-            div[data-testid="column"] {
-                width: 0 !important; /* Odbiera przeglądarce prawo do rozpychania */
-                min-width: 0 !important;
-                flex: 1 1 0% !important; /* Sztywny podział na równe części */
-                padding: 0 !important;
-            }
-            div[data-testid="stButton"] {
-                width: 100% !important;
-            }
-            div[data-testid="stButton"] > button {
-                width: 100% !important;
-                padding: 0 !important;
-                min-height: 44px !important;
-                display: flex !important;
-                justify-content: center !important;
-                align-items: center !important;
-            }
-            div[data-testid="stButton"] > button p {
-                font-size: 13px !important;
-                margin: 0 !important;
-                white-space: nowrap !important; /* Zakaz łamania tekstu w przycisku */
-                overflow: hidden !important;   /* Ukrycie tego, co ewentualnie wystaje */
-                text-overflow: clip !important;
-            }
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -324,18 +286,17 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
-    # --- KOKPIT ROZGRZEWKI ---
+    # --- KOKPIT STEROWANIA W NATYWNYM, BEZPIECZNYM UKŁADZIE STREAMLITA ---
     st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: 2px; margin-top: 5px; text-align: center; font-weight: bold;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
     cw1, cw2, cw3 = st.columns(3)
-    cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,))
-    cw2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,))
-    cw3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,))
+    cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
+    cw2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,), use_container_width=True)
+    cw3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
 
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     
-    # --- KOKPIT AKCJI ---
     c_save, c_pause, c_cancel = st.columns(3)
-    if c_save.button(T[lang]["finish"], type="primary"):
+    if c_save.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
         if db.zapisz_do_arkusza(st.session_state.zalogowany_zawodnik, st.session_state.event_info, statystyki_koncowe):
             kod_meczu = st.session_state.event_info.get("KodMeczu", "")
@@ -345,11 +306,11 @@ if st.session_state.started:
         reset()
         st.rerun()
         
-    if c_pause.button(T[lang]["pause_btn"]):
+    if c_pause.button(T[lang]["pause_btn"], use_container_width=True):
         st.session_state.started = False 
         st.rerun()
         
-    if c_cancel.button(T[lang]["cancel_btn"]):
+    if c_cancel.button(T[lang]["cancel_btn"], use_container_width=True):
         reset()
         st.rerun()
 
