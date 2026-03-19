@@ -11,25 +11,39 @@ from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT (WYGLĄD NATYWNEJ APLIKACJI) ---
+# --- UKRYCIE INTERFEJSU STREAMLIT I WYMUSZENIE JEDNEGO RZĘDU NA TELEFONACH ---
 st.markdown("""
     <style>
-        /* Ukrycie paska nagłówka z przyciskiem Deploy i menu */
         header {visibility: hidden;}
-        /* Ukrycie stopki na dole */
         footer {visibility: hidden;}
-        /* Zmniejszenie pustego marginesu na samej górze ekranu */
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
         }
-        /* Ukrycie guzika Manage app */
         .stDeployButton {display:none;}
         
-        /* Zmniejszenie tekstu w przyciskach na najmniejszych ekranach */
-        @media (max-width: 400px) {
-            .stButton button p {
-                font-size: 14px !important;
+        /* AGRESYWNY KOD DLA TELEFONÓW (max 768px szerokości) */
+        @media screen and (max-width: 768px) {
+            /* 1. Zablokowanie łamania kolumn i minimalne odstępy */
+            div[data-testid="stHorizontalBlock"] {
+                flex-wrap: nowrap !important;
+                gap: 4px !important; 
+            }
+            /* 2. Zezwolenie kolumnom na maksymalne skurczenie się */
+            div[data-testid="column"] {
+                min-width: 0 !important;
+            }
+            /* 3. Odchudzenie przycisków, żeby na 100% zmieściły się w rzędzie */
+            .stButton > button {
+                width: 100% !important;
+                padding-left: 0px !important;
+                padding-right: 0px !important;
+                min-height: 40px !important;
+            }
+            /* 4. Lekkie zmniejszenie tekstu na przyciskach */
+            .stButton > button > div > p {
+                font-size: 13px !important;
+                margin: 0 !important;
             }
         }
     </style>
@@ -594,17 +608,18 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
-    # --- KOMPAKTOWY KOKPIT STEROWANIA W PRAWIDŁOWYM UKŁADZIE ---
-    st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: -10px; margin-top: 5px;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
+    # --- KOMPAKTOWY KOKPIT STEROWANIA W JEDNYM RZĘDZIE ---
+    st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: 2px; margin-top: 5px;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
     cw1, cw2, cw3 = st.columns(3)
     cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
     cw2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,), use_container_width=True)
     cw3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
 
-    st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     
-    # Przycisk Zapisz na całą szerokość, Pauza i Usuń poniżej w dwóch kolumnach
-    if st.button(T[lang]["finish"], type="primary", use_container_width=True):
+    # Przycisk Zapisz (szerszy) i obok Pauza oraz Usuń (węższe) - wymuszone w 1 rzędzie
+    c_save, c_pause, c_cancel = st.columns([1.5, 1, 1])
+    if c_save.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
         if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
             kod_meczu = st.session_state.event_info.get("KodMeczu", "")
@@ -614,7 +629,6 @@ if st.session_state.started:
         reset()
         st.rerun()
         
-    c_pause, c_cancel = st.columns(2)
     if c_pause.button(T[lang]["pause_btn"], use_container_width=True):
         st.session_state.started = False 
         st.rerun()
