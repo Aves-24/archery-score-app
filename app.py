@@ -11,18 +11,21 @@ from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT I WYMUSZENIE "TABELKOWEGO" UKŁADU ---
+# --- UKRYCIE INTERFEJSU STREAMLIT I BEZPIECZNY UKŁAD "TABELI" ---
 st.markdown("""
     <style>
         header {visibility: hidden;}
         footer {visibility: hidden;}
+        
+        /* Zabezpieczenie fizyczne przed przewijaniem w bok na całym ekranie! */
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
+            overflow-x: hidden !important; 
         }
         .stDeployButton {display:none;}
         
-        /* MAGICZNA TABELA - Wymuszenie sztywnego, jednorzędowego układu na telefonach */
+        /* Wymuszenie równego podziału kolumn bez rozpychania ekranu */
         @media screen and (max-width: 768px) {
             div[data-testid="stHorizontalBlock"] {
                 flex-direction: row !important;
@@ -30,21 +33,20 @@ st.markdown("""
                 gap: 5px !important; 
             }
             div[data-testid="column"] {
-                width: 100% !important;
+                width: auto !important; /* NAPRAWA PRZEWIJANIA W BOK */
                 min-width: 0 !important;
-                flex: 1 1 0px !important;
+                flex: 1 1 0px !important; /* Idealnie równy podział miejsca */
                 padding: 0 !important;
             }
-            /* Przyciski dopasowują się do swojej małej "komórki" */
             .stButton > button {
                 width: 100% !important;
                 padding: 0px 2px !important;
-                font-size: 13px !important;
                 min-height: 44px !important;
             }
             .stButton > button p {
                 font-size: 13px !important;
                 margin: 0 !important;
+                word-wrap: break-word !important;
             }
         }
     </style>
@@ -86,7 +88,7 @@ T = {
         "pts": "Punkty",
         "arrow_cnt": "Licznik",
         "eff": "Skuteczność",
-        "warmup": "Rozgrzewka / Próbne",
+        "warmup": "Rozgrzewka / Próbne:",
         "add_6": "➕ 6",
         "add_1": "➕ 1",
         "undo": "➖ 1",
@@ -154,7 +156,7 @@ T = {
         "pts": "Punkte",
         "arrow_cnt": "Pfeile",
         "eff": "Quote",
-        "warmup": "Probepfeile",
+        "warmup": "Probepfeile:",
         "add_6": "➕ 6",
         "add_1": "➕ 1",
         "undo": "➖ 1",
@@ -609,18 +611,18 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
-    # --- KOMPAKTOWY KOKPIT (ROZGRZEWKA) ---
+    # --- KOMPAKTOWY KOKPIT W JEDNYM RZĘDZIE ---
     st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: 2px; margin-top: 5px; text-align: center; font-weight: bold;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
     cw1, cw2, cw3 = st.columns(3)
-    cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
-    cw2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,), use_container_width=True)
-    cw3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
+    cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,))
+    cw2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,))
+    cw3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,))
 
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     
-    # --- KOMPAKTOWY KOKPIT (AKCJE) ---
+    # Przycisk Zapisz, Pauza i Usuń w idealnie równej siatce
     c_save, c_pause, c_cancel = st.columns(3)
-    if c_save.button(T[lang]["finish"], type="primary", use_container_width=True):
+    if c_save.button(T[lang]["finish"], type="primary"):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
         if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
             kod_meczu = st.session_state.event_info.get("KodMeczu", "")
@@ -630,11 +632,11 @@ if st.session_state.started:
         reset()
         st.rerun()
         
-    if c_pause.button(T[lang]["pause_btn"], use_container_width=True):
+    if c_pause.button(T[lang]["pause_btn"]):
         st.session_state.started = False 
         st.rerun()
         
-    if c_cancel.button(T[lang]["cancel_btn"], use_container_width=True):
+    if c_cancel.button(T[lang]["cancel_btn"]):
         reset()
         st.rerun()
 
@@ -976,30 +978,21 @@ else:
                 df_my_cal = df_my_cal.sort_values('Datetime')
                 
                 for _, row in df_my_cal.iterrows():
-                    adres_text = str(row.get("Adres", "")).strip()
-                    adres_html = ""
-                    if adres_text:
-                        encoded_adres = urllib.parse.quote(adres_text)
-                        maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
-                        
-                    del_link = f"?u={urllib.parse.quote(st.session_state.zalogowany_zawodnik)}&del={row['ID']}"
-                    trash_btn = f"<a href='{del_link}' target='_self' style='text-decoration: none; display: flex; justify-content: center; align-items: center; width: 44px; height: 44px; background-color: #fff; border: 1px solid #ffcdd2; color: #d32f2f; border-radius: 8px; font-size: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s;'>🗑️</a>"
-                    
-                    st.markdown(f"""
-                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 8px; border-left: 5px solid #1E88E5; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-                        <div style='display: flex; justify-content: space-between; align-items: center;'>
-                            <div style='flex-grow: 1; padding-right: 10px;'>
-                                <b style='color: #1E88E5; font-size: 14px;'>🗓️ {row['Data']}</b><br>
-                                <span style='font-size: 15px; font-weight: 500; color: #333;'>{row['Nazwa']}</span>
-                                {adres_html}
-                            </div>
-                            <div>
-                                {trash_btn}
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    col_e1, col_e2 = st.columns([6, 1])
+                    with col_e1:
+                        adres_text = str(row.get("Adres", "")).strip()
+                        adres_html = ""
+                        if adres_text:
+                            encoded_adres = urllib.parse.quote(adres_text)
+                            maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
+                            adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
+                            
+                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>🗓️ {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
+                    with col_e2:
+                        st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+                        if st.button("🗑️", key=f"del_{row['ID']}", use_container_width=True):
+                            usun_kalendarz_osobisty(row['ID'])
+                            st.rerun()
 
         with tab_diary:
             df_hist = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
