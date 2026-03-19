@@ -15,7 +15,7 @@ import pro_features as pro
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT (CZYSTY KOD, BEZ ZEPSUTEGO CSS) ---
+# --- UKRYCIE INTERFEJSU STREAMLIT ---
 st.markdown("""
     <style>
         header {visibility: hidden;}
@@ -77,7 +77,7 @@ def wykonaj_logowanie(czysta_nazwa):
                     st.session_state.event_info = data.get("event_info", {})
                     st.session_state.max_arrows_per_round = data.get("max_arrows_per_round", 36)
                     st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
-                    st.session_state.pogoda_txt = pro.pobierz_pogode() # Pobiera pogodę przy przywróceniu sesji
+                    st.session_state.pogoda_txt = pro.pobierz_pogode() 
         except: pass
     
     zapisane_dane = db.pobierz_profil_sprzetu(czysta_nazwa)
@@ -205,7 +205,6 @@ st.markdown(f"<div style='text-align: right; color: gray; font-size: 12px; margi
 if st.session_state.started:
     st.markdown("""
         <style>
-            /* Styl radia - odzyskanie pięknego paska punktacji! */
             div[data-testid="stRadio"] { margin-bottom: -20px !important; }
             div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; justify-content: center !important; }
             div[role="radiogroup"] label p { font-size: 18px !important; font-weight: 900 !important; padding: 0 !important; }
@@ -221,7 +220,6 @@ if st.session_state.started:
     arrows_per_end = info['StrzalWSerii']
     max_total_score = st.session_state.max_total_arrows * 10
     
-    # MAGICZNA AKTUALIZACJA POGODY NA POCZĄTKU 2 RUNDY (bez mulenia po każdej strzale)
     if len(scores) >= st.session_state.max_arrows_per_round and not st.session_state.pogoda_r2_pobrana:
         st.session_state.pogoda_txt = pro.pobierz_pogode()
         st.session_state.pogoda_r2_pobrana = True
@@ -236,7 +234,6 @@ if st.session_state.started:
     with st.expander("⏱️ Timer / Stoppuhr"):
         pro.render_stopwatch(lang)
 
-    # --- NASZ UKOCHANY, STABILNY RADIO BUTTON ---
     st.radio("Punkty", options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], horizontal=True, index=None, key="radio_input", on_change=handle_radio_click, label_visibility="collapsed")
     st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
@@ -303,7 +300,6 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
-    # --- KARTA STATYSTYK Z WYKRESEM ZMĘCZENIA ---
     st.markdown(f"""
     <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
         <p style='margin: 0 0 10px 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['total_score']}</p>
@@ -325,7 +321,6 @@ if st.session_state.started:
     if wykres is not None:
         st.altair_chart(wykres, use_container_width=True)
 
-    # --- KOKPIT ROZGRZEWKI ---
     st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: 2px; margin-top: 5px; text-align: center; font-weight: bold;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
     cw1, cw2, cw3 = st.columns(3)
     cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
@@ -334,7 +329,6 @@ if st.session_state.started:
 
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     
-    # --- KOKPIT AKCJI (NATYWNY UKŁAD STREAMLIT - ZERO HACKÓW) ---
     c_save, c_pause, c_cancel = st.columns(3)
     if c_save.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
@@ -472,7 +466,7 @@ else:
                     "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans, "KodMeczu": "",
                     "CelownikSkala": " | ".join(czesci) if czesci else "-"
                 }
-                st.session_state.pogoda_txt = pro.pobierz_pogode() # Pobiera pogodę TYLKO w momencie startu
+                st.session_state.pogoda_txt = pro.pobierz_pogode() 
                 st.session_state.pogoda_r2_pobrana = False
                 st.session_state.max_arrows_per_round = 36
                 st.session_state.max_total_arrows = 72
@@ -514,7 +508,7 @@ else:
                         "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans_multi, "KodMeczu": kod_meczu.strip(),
                         "CelownikSkala": " | ".join(czesci) if czesci else "-"
                     }
-                    st.session_state.pogoda_txt = pro.pobierz_pogode() # POBRANIE POGODY TYLKO RAZ
+                    st.session_state.pogoda_txt = pro.pobierz_pogode() 
                     st.session_state.pogoda_r2_pobrana = False
                     st.session_state.max_arrows_per_round = 36
                     st.session_state.max_total_arrows = 72
@@ -743,18 +737,12 @@ else:
         st.markdown(f"<div style='background-color: #f9f9f9; padding: 8px 12px; border-radius: 6px; border-left: 4px solid #2E8B57; margin: 15px 0 10px 0;'><b style='font-size: 15px;'>{T[lang]['visier']}</b></div>", unsafe_allow_html=True)
         st.markdown(f"<span style='font-size:12px; color:gray;'>{T[lang]['choose_dist_settings']}</span>", unsafe_allow_html=True)
         
-        c_vis1, c_vis2, c_vis3, c_vis4 = st.columns([0.8, 1, 1, 1])
-        c_vis1.markdown(f"<span style='font-size:12px; color:gray;'>Dist.</span>", unsafe_allow_html=True)
-        c_vis2.markdown(f"<span style='font-size:12px; color:gray;'>Ausleger</span>", unsafe_allow_html=True)
-        c_vis3.markdown(f"<span style='font-size:12px; color:gray;'>Höhe</span>", unsafe_allow_html=True)
-        c_vis4.markdown(f"<span style='font-size:12px; color:gray;'>Seite</span>", unsafe_allow_html=True)
-        
         for d in dystanse_lista:
             c1, c2, c3, c4 = st.columns([0.8, 1, 1, 1])
             c1.checkbox(d, value=(d in st.session_state.aktywne_dystanse), key=f"chk_{d}", on_change=zmiana_dystansow)
-            c2.text_input(f"Aus {d}", placeholder=st.session_state[f"aus_{d}"] or "Ausl.", key=f"ui_aus_{d}", label_visibility="collapsed")
-            c3.text_input(f"Höhe {d}", placeholder=st.session_state[f"hoehe_{d}"] or "Höhenv.", key=f"ui_hoehe_{d}", label_visibility="collapsed")
-            c4.text_input(f"Seite {d}", placeholder=st.session_state[f"seite_{d}"] or "Seitenv.", key=f"ui_seite_{d}", label_visibility="collapsed")
+            c2.text_input(f"Aus {d}", placeholder=st.session_state[f"aus_{d}"] or "Ausleger", key=f"ui_aus_{d}", label_visibility="collapsed")
+            c3.text_input(f"Höhe {d}", placeholder=st.session_state[f"hoehe_{d}"] or "Höhe", key=f"ui_hoehe_{d}", label_visibility="collapsed")
+            c4.text_input(f"Seite {d}", placeholder=st.session_state[f"seite_{d}"] or "Seite", key=f"ui_seite_{d}", label_visibility="collapsed")
         
         st.write("")
         if st.button("💾 Profil in der Cloud speichern" if lang == "DE" else "💾 Zapisz profil w chmurze", use_container_width=True):
