@@ -3,11 +3,14 @@ import json
 import os
 import time
 from datetime import datetime, date, timedelta
-import gspread
 import pandas as pd
 import altair as alt
 import urllib.parse
 from streamlit_option_menu import option_menu
+
+# --- IMPORTY Z NASZYCH NOWYCH PLIKÓW ---
+from config import NAZWA_ARKUSZA, ADRES_APLIKACJI, KOD_KLUBU, dystanse_lista, T
+import database as db
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
@@ -17,7 +20,6 @@ st.markdown("""
         header {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* Zabezpieczenie fizyczne przed przewijaniem w bok na całym ekranie! */
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
@@ -25,7 +27,7 @@ st.markdown("""
         }
         .stDeployButton {display:none;}
         
-        /* Wymuszenie równego podziału kolumn bez rozpychania ekranu */
+        /* Wymuszenie równego podziału kolumn bez rozpychania ekranu na telefonie */
         @media screen and (max-width: 768px) {
             div[data-testid="stHorizontalBlock"] {
                 flex-direction: row !important;
@@ -33,9 +35,9 @@ st.markdown("""
                 gap: 5px !important; 
             }
             div[data-testid="column"] {
-                width: auto !important; /* NAPRAWA PRZEWIJANIA W BOK */
+                width: auto !important; 
                 min-width: 0 !important;
-                flex: 1 1 0px !important; /* Idealnie równy podział miejsca */
+                flex: 1 1 0px !important; 
                 padding: 0 !important;
             }
             .stButton > button {
@@ -52,152 +54,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- KONFIGURACJA GŁÓWNA ---
-NAZWA_ARKUSZA = "Karta_Punktowa" 
-ADRES_APLIKACJI = "https://sft-schiesszettel.streamlit.app/"
-KOD_KLUBU = "SFT"
-dystanse_lista = ["18m", "20m", "30m", "40m", "50m", "60m", "70m"]
-
-# --- SŁOWNIK JĘZYKOWY (PL / DE) ---
-T = {
-    "PL": {
-        "title": "🏹 Karta Punktowa",
-        "menu_home": "Home",
-        "menu_score": "Schießzettel",
-        "menu_multi": "Mini-Turniej",
-        "menu_stats": "Statystyki",
-        "menu_calendar": "Kalendarz",
-        "menu_settings": "Ustawienia",
-        "home_welcome": "Witaj",
-        "home_last_training": "Ostatni trening:",
-        "home_record": "Twój rekord na",
-        "home_no_data": "Nie masz jeszcze żadnych wyników. Czas na trening!",
-        "upcoming_events": "🗓️ Twoje nadchodzące wyjazdy/treningi",
-        "no_events": "Brak zaplanowanych wydarzeń.",
-        "training": "Trening",
-        "tournament": "Turniej",
-        "event_name": "Nazwa turnieju:",
-        "event_name_ph": "np. Mistrzostwa Klubu",
-        "choose_dist": "🎯 **Wybierz dystans:**",
-        "room_code": "2-cyfrowy kod pokoju (np. 12):",
-        "start_btn": "🚀 ROZPOCZNIJ STRZELANIE",
-        "start_multi_btn": "⚔️ DOŁĄCZ I ROZPOCZNIJ",
-        "lang_label": "Wybierz język / Sprache:",
-        "dist": "Dystans",
-        "total_score": "Wynik Całkowity",
-        "pts": "Punkty",
-        "arrow_cnt": "Licznik",
-        "eff": "Skuteczność",
-        "warmup": "Rozgrzewka / Próbne:",
-        "add_6": "➕ 6",
-        "add_1": "➕ 1",
-        "undo": "➖ 1",
-        "finish": "💾 Zapisz",
-        "cancel_btn": "❌ Usuń",
-        "pause_btn": "⏸️ Pauza",
-        "resume_btn": "▶️ Kontynuuj",
-        "discard_btn": "🗑️ Odrzuć",
-        "unfinished_msg": "⚠️ Masz wstrzymany trening w tle!",
-        "sum_10_x": "Suma 10+X:",
-        "only_x": "Same X:",
-        "round_fin": "✅ Runda 1 (Zakończona)",
-        "bow_setup": "🏹 Łuk (Bogen-Setup)",
-        "draw_weight": "Siła (Zuggewicht) [lbs]",
-        "brace_height": "Wys. cięciwy (Standhöhe) [cm/in]",
-        "tiller": "Tiller [mm]",
-        "nock_point": "P. siodełka (Nockpunkt) [mm]",
-        "arrows_setup": "🎯 Strzały (Pfeile)",
-        "arr_model": "Model (Modell)",
-        "arr_spine": "Sztywność (Spine)",
-        "arr_len": "Długość (Länge) [in]",
-        "arr_point": "Waga grotu (Spitze) [gr]",
-        "visier": "🔭 Celownik (Visier)",
-        "choose_dist_settings": "Zaznacz widoczne dystanse na torze:",
-        "dl_equip_txt": "📥 Pobierz profil sprzętu",
-        "dl_stats_csv": "📥 Pobierz statystyki (CSV)",
-        "rank_title": "🏆 Tabela Wyników (Ważna 12 godzin!)",
-        "rank_btn": "🔄 Odśwież tabelę",
-        "rank_empty": "Brak wyników z ostatnich 12 godzin dla tego kodu. Bądź pierwszy!",
-        "stat_no_data": "Brak danych dla tego dystansu. Idź postrzelać! 🏹",
-        "stat_metric": "Pokaż na wykresie:",
-        "my_plan": "Mój Terminarz",
-        "my_diary": "Mój Dziennik",
-        "add_event": "➕ Dodaj wydarzenie",
-        "event_date": "Data",
-        "event_event_name": "Nazwa wydarzenia",
-        "event_address": "Adres (opcjonalnie)",
-        "nav_btn": "Nawiguj"
-    },
-    "DE": {
-        "title": "🏹 Schießzettel",
-        "menu_home": "Home",
-        "menu_score": "Schießzettel",
-        "menu_multi": "Mini-Turnier",
-        "menu_stats": "Statistiken",
-        "menu_calendar": "Kalender",
-        "menu_settings": "Einstellungen",
-        "home_welcome": "Willkommen",
-        "home_last_training": "Dein letztes Training:",
-        "home_record": "Dein Rekord auf",
-        "home_no_data": "Noch keine Ergebnisse vorhanden. Zeit für ein Training!",
-        "upcoming_events": "🗓️ Deine nächsten Termine",
-        "no_events": "Keine geplanten Ereignisse.",
-        "training": "Training",
-        "tournament": "Turnier",
-        "event_name": "Turniername:",
-        "event_name_ph": "z.B. Vereinsmeisterschaft",
-        "choose_dist": "🎯 **Wähle Distanz:**",
-        "room_code": "2-stelliger Raumcode (z.B. 12):",
-        "start_btn": "🚀 SCHIESSEN STARTEN",
-        "start_multi_btn": "⚔️ BEITRETEN & STARTEN",
-        "lang_label": "Sprache / Wybierz język:",
-        "dist": "Distanz",
-        "total_score": "Gesamtergebnis",
-        "pts": "Punkte",
-        "arrow_cnt": "Pfeile",
-        "eff": "Quote",
-        "warmup": "Probepfeile:",
-        "add_6": "➕ 6",
-        "add_1": "➕ 1",
-        "undo": "➖ 1",
-        "finish": "💾 Speichern",
-        "cancel_btn": "❌ Löschen",
-        "pause_btn": "⏸️ Pause",
-        "resume_btn": "▶️ Fortsetzen",
-        "discard_btn": "🗑️ Verwerfen",
-        "unfinished_msg": "⚠️ Du hast ein pausiertes Training im Hintergrund!",
-        "sum_10_x": "Summe 10+X:",
-        "only_x": "Nur X:",
-        "round_fin": "✅ Runde 1 (Beendet)",
-        "bow_setup": "🏹 Bogen-Setup",
-        "draw_weight": "Zuggewicht [lbs]",
-        "brace_height": "Standhöhe [cm/in]",
-        "tiller": "Tiller [mm]",
-        "nock_point": "Nockpunkt [mm]",
-        "arrows_setup": "🎯 Pfeile",
-        "arr_model": "Modell",
-        "arr_spine": "Spine-Wert",
-        "arr_len": "Pfeillänge [in]",
-        "arr_point": "Spitzengewicht [gr]",
-        "visier": "🔭 Visier",
-        "choose_dist_settings": "Sichtbare Distanzen markieren:",
-        "dl_equip_txt": "📥 Ausrüstungsprofil herunterladen",
-        "dl_stats_csv": "📥 Statistiken herunterladen (CSV)",
-        "rank_title": "🏆 Live-Rangliste (12 Stunden gültig!)",
-        "rank_btn": "🔄 Tabelle aktualisieren",
-        "rank_empty": "Keine Ergebnisse aus den letzten 12 Stunden für diesen Code. Sei der Erste!",
-        "stat_no_data": "Keine Daten für diese Distanz. Geh schießen! 🏹",
-        "stat_metric": "Zeige im Diagramm:",
-        "my_plan": "Mein Terminplan",
-        "my_diary": "Mein Tagebuch",
-        "add_event": "➕ Ereignis hinzufügen",
-        "event_date": "Datum",
-        "event_event_name": "Name des Ereignisses",
-        "event_address": "Adresse (optional)",
-        "nav_btn": "Route"
-    }
-}
-
 # --- INICJALIZACJA SESJI ---
 if 'lang' not in st.session_state: st.session_state.lang = "DE" 
 if 'zalogowany_zawodnik' not in st.session_state: st.session_state.zalogowany_zawodnik = None
@@ -210,6 +66,7 @@ if 'started' not in st.session_state:
 
 lang = st.session_state.lang
 
+# --- FUNKCJE POMOCNICZE (LOKALNE) ---
 def get_autosave_file(): return f"autosave_{st.session_state.zalogowany_zawodnik}.json"
 
 def save_user_settings():
@@ -226,175 +83,6 @@ def load_user_settings(zawodnik):
                 st.session_state.aktywne_dystanse = data.get("aktywne_dystanse", ["18m", "30m", "70m"])
                 st.session_state.lang = data.get("lang", "DE") 
         except: pass
-
-# --- FUNKCJE GOOGLE SHEETS ---
-@st.cache_data(ttl=30)
-def pobierz_uzytkownikow():
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        sh = gc.open(NAZWA_ARKUSZA)
-        try: ws = sh.worksheet("Konta")
-        except:
-            ws = sh.add_worksheet(title="Konta", rows="100", cols="2")
-            ws.append_row(["Zawodnik", "PIN"])
-            return {}
-        return {str(r["Zawodnik"]).strip(): str(r["PIN"]).strip().lstrip("'") for r in ws.get_all_records()}
-    except: return {}
-
-def dodaj_uzytkownika(nazwa, pin):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        gc.open(NAZWA_ARKUSZA).worksheet("Konta").append_row([nazwa, f"'{pin}"])
-        st.cache_data.clear() 
-        return True
-    except: return False
-
-def pobierz_profil_sprzetu(zawodnik):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        zapisy = gc.open(NAZWA_ARKUSZA).worksheet("Profil_Sprzetu").get_all_records()
-        if not zapisy: return None
-        df_zawodnik = pd.DataFrame(zapisy)
-        df_zawodnik = df_zawodnik[df_zawodnik["Zawodnik"] == zawodnik]
-        return df_zawodnik.iloc[-1].to_dict() if not df_zawodnik.empty else None
-    except: return None
-
-def zapisz_profil_sprzetu(zawodnik, dane):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        sh = gc.open(NAZWA_ARKUSZA)
-        try: ws = sh.worksheet("Profil_Sprzetu")
-        except:
-            ws = sh.add_worksheet(title="Profil_Sprzetu", rows="100", cols="31")
-            naglowki = ["Data", "Zawodnik", "Zuggewicht", "Standhoehe", "Tiller", "Nockpunkt", "Pfeil_Modell", "Pfeil_Spine", "Pfeil_Laenge", "Pfeil_Spitze"]
-            for d in dystanse_lista: naglowki.extend([f"aus_{d}", f"hoehe_{d}", f"seite_{d}"])
-            ws.append_row(naglowki)
-            
-        wiersz = [datetime.now().strftime("%d.%m.%Y %H:%M"), zawodnik, dane['zuggewicht'], dane['standhoehe'], dane['tiller'], dane['nockpunkt'], dane['pfeil_modell'], dane['pfeil_spine'], dane['pfeil_laenge'], dane['pfeil_spitze']]
-        for d in dystanse_lista: wiersz.extend([dane[f"aus_{d}"], dane[f"hoehe_{d}"], dane[f"seite_{d}"]])
-        ws.append_row(wiersz)
-        return True
-    except: return False
-
-@st.cache_data(ttl=15)
-def pobierz_dane_z_arkusza(zawodnik):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        zapisy = gc.open(NAZWA_ARKUSZA).worksheet(zawodnik).get_all_records()
-        if zapisy:
-            df = pd.DataFrame(zapisy)
-            df.columns = df.columns.astype(str).str.strip()
-            for col in ["Punkty", "Same X", "10", "9", "M", "Strzały (Suma)"]:
-                if col in df.columns: df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-                else: df[col] = 0
-            return df
-        return pd.DataFrame()
-    except: return pd.DataFrame()
-
-def zapisz_do_arkusza(dane_treningu, statystyki):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        sh = gc.open(NAZWA_ARKUSZA)
-        zawodnik = st.session_state.zalogowany_zawodnik
-        try: ws = sh.worksheet(zawodnik)
-        except:
-            ws = sh.add_worksheet(title=zawodnik, rows="100", cols="20")
-            ws.append_row(["Data", "Czas", "Typ", "Nazwa", "Dystans", "Punkty", "Max", "Skuteczność %", "Strzały (Suma)", "10+X", "Same X", "Wizjer Dziurka", "Wizjer Skala", "10", "9", "M"])
-            
-        ws.append_row([
-            dane_treningu["Data"], datetime.now().strftime("%H:%M:%S"), dane_treningu["Typ"], dane_treningu["Nazwa"],
-            dane_treningu["Dystans"], statystyki["Punkty"], statystyki["Max"], f"{statystyki['Skuteczność']:.1f}%",
-            statystyki["Strzały"], statystyki["10_i_X"], statystyki["X"], "-", dane_treningu["CelownikSkala"],
-            statystyki["10"], statystyki["9"], statystyki["M"]
-        ])
-        st.cache_data.clear()
-        return True
-    except: return False
-
-def zapisz_wynik_grupowy(zawodnik, kod, punkty, x10, x):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        sh = gc.open(NAZWA_ARKUSZA)
-        try: ws = sh.worksheet("Wyniki_Grupowe_V2")
-        except:
-            ws = sh.add_worksheet(title="Wyniki_Grupowe_V2", rows="1000", cols="6")
-            ws.append_row(["DataCzas", "Kod", "Zawodnik", "Punkty", "10_i_X", "Same X"])
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ws.append_row([now_str, str(kod).strip(), zawodnik, punkty, x10, x])
-        st.cache_data.clear()
-    except: pass
-
-@st.cache_data(ttl=5)
-def pobierz_ranking():
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        return pd.DataFrame(gc.open(NAZWA_ARKUSZA).worksheet("Wyniki_Grupowe_V2").get_all_records())
-    except: return pd.DataFrame()
-
-@st.cache_data(ttl=5)
-def pobierz_kalendarz_osobisty(zawodnik):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        sh = gc.open(NAZWA_ARKUSZA)
-        try: ws = sh.worksheet("Kalendarz_Osobisty")
-        except:
-            ws = sh.add_worksheet(title="Kalendarz_Osobisty", rows="100", cols="6")
-            ws.append_row(["ID", "Zawodnik", "Data", "Nazwa", "Adres", "Link"])
-            return pd.DataFrame()
-            
-        zapisy = ws.get_all_values()
-        if len(zapisy) > 1:
-            headers = ["ID", "Zawodnik", "Data", "Nazwa", "Adres", "Link"]
-            data = []
-            for r in zapisy[1:]:
-                row_data = r + [""] * (6 - len(r))
-                data.append(row_data[:6])
-            df = pd.DataFrame(data, columns=headers)
-            return df[df["Zawodnik"] == zawodnik]
-        return pd.DataFrame()
-    except: return pd.DataFrame()
-
-def dodaj_kalendarz_osobisty(zawodnik, data, nazwa, adres, link):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
-        event_id = f"EV-{int(time.time() * 1000)}"
-        ws.append_row([event_id, zawodnik, data.strftime("%d.%m.%Y"), nazwa, adres, link])
-        st.cache_data.clear()
-        return True
-    except: return False
-
-def usun_kalendarz_osobisty(event_id):
-    try:
-        klucz_tekst = st.secrets["google_credentials"]
-        gc = gspread.service_account_from_dict(json.loads(klucz_tekst))
-        ws = gc.open(NAZWA_ARKUSZA).worksheet("Kalendarz_Osobisty")
-        
-        zapisy = ws.get_all_values()
-        for i, row in enumerate(zapisy):
-            if str(row[0]) == str(event_id):
-                ws.delete_rows(i + 1) 
-                st.cache_data.clear()
-                return True
-        return False
-    except: return False
-
-
-# --- FUNKCJE POMOCNICZE LOGOWANIA ---
-if "del" in st.query_params:
-    usun_kalendarz_osobisty(st.query_params["del"])
-    del st.query_params["del"] 
-    st.rerun()
 
 def wykonaj_logowanie(czysta_nazwa):
     st.session_state.zalogowany_zawodnik = czysta_nazwa
@@ -415,7 +103,7 @@ def wykonaj_logowanie(czysta_nazwa):
                     st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
         except: pass
     
-    zapisane_dane = pobierz_profil_sprzetu(czysta_nazwa)
+    zapisane_dane = db.pobierz_profil_sprzetu(czysta_nazwa)
     if zapisane_dane:
         for d in dystanse_lista:
             st.session_state[f"aus_{d}"] = str(zapisane_dane.get(f"aus_{d}", ""))
@@ -444,7 +132,6 @@ def zmiana_jezyka():
     st.session_state.lang = st.session_state.lang_sel
     save_user_settings()
 
-# --- SYSTEM PUNKTACJI W TLE ---
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
         with open(get_autosave_file(), "w") as f: 
@@ -475,17 +162,32 @@ def add_extra_arrows(val):
         st.session_state.extra_arrows += val
         save_backup()
 
-has_paused_session = bool(st.session_state.get('event_info', {}))
+# --- SPRAWDZENIE AKCJI W URL (AUTO-LOGIN / USUWANIE KALENDARZA) ---
+if "del" in st.query_params:
+    db.usun_kalendarz_osobisty(st.query_params["del"])
+    del st.query_params["del"] 
+    st.rerun()
 
 if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
     wykonaj_logowanie(st.query_params["u"])
+
+has_paused_session = bool(st.session_state.get('event_info', {}))
+
+# --- INICJALIZACJA ZMIENNYCH SPRZĘTU (ZABEZPIECZENIE) ---
+for d in dystanse_lista:
+    if f"aus_{d}" not in st.session_state: st.session_state[f"aus_{d}"] = ""
+    if f"hoehe_{d}" not in st.session_state: st.session_state[f"hoehe_{d}"] = ""
+    if f"seite_{d}" not in st.session_state: st.session_state[f"seite_{d}"] = ""
+for z in ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]:
+    if z not in st.session_state: st.session_state[z] = ""
+
 
 # =====================================================================
 # EKRAN LOGOWANIA
 # =====================================================================
 if not st.session_state.zalogowany_zawodnik:
     st.markdown(f"<div style='background-color: #2E8B57; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center;'><h2 style='color: white; margin: 0;'>🏹 Schützenprofil</h2></div>", unsafe_allow_html=True)
-    konta = pobierz_uzytkownikow()
+    konta = db.pobierz_uzytkownikow()
     tab_log, tab_rej = st.tabs(["🔐 Einloggen", "📝 Konto erstellen"])
     
     with tab_log:
@@ -506,7 +208,7 @@ if not st.session_state.zalogowany_zawodnik:
         if st.button("Konto erstellen", type="primary", use_container_width=True):
             if podany_kod_klubu != KOD_KLUBU: st.error("❌ Falscher Vereins-Code!")
             elif nowy_zawodnik.strip() in konta: st.warning("Dieser Schütze existiert bereits!")
-            elif dodaj_uzytkownika(nowy_zawodnik.strip(), nowy_pin):
+            elif db.dodaj_uzytkownika(nowy_zawodnik.strip(), nowy_pin):
                 st.success("✅ Konto erfolgreich erstellt!")
                 time.sleep(2)
                 st.rerun()
@@ -611,7 +313,7 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
-    # --- KOMPAKTOWY KOKPIT W JEDNYM RZĘDZIE ---
+    # --- KOKPIT ROZGRZEWKI ---
     st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: 2px; margin-top: 5px; text-align: center; font-weight: bold;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
     cw1, cw2, cw3 = st.columns(3)
     cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,))
@@ -620,13 +322,13 @@ if st.session_state.started:
 
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     
-    # Przycisk Zapisz, Pauza i Usuń w idealnie równej siatce
+    # --- KOKPIT AKCJI ---
     c_save, c_pause, c_cancel = st.columns(3)
     if c_save.button(T[lang]["finish"], type="primary"):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
-        if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
+        if db.zapisz_do_arkusza(st.session_state.zalogowany_zawodnik, st.session_state.event_info, statystyki_koncowe):
             kod_meczu = st.session_state.event_info.get("KodMeczu", "")
-            if kod_meczu: zapisz_wynik_grupowy(st.session_state.zalogowany_zawodnik, kod_meczu, total_points, count_10_total, count_x)
+            if kod_meczu: db.zapisz_wynik_grupowy(st.session_state.zalogowany_zawodnik, kod_meczu, total_points, count_10_total, count_x)
             st.success("✅ Gespeichert!" if lang=="DE" else "✅ Zapisano!")
             time.sleep(1.5)
         reset()
@@ -684,7 +386,7 @@ else:
     if wybrana_zakladka == T[lang]["menu_home"]:
         st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 18px; font-weight: bold;'>🏠 {T[lang]['home_welcome']}, {st.session_state.zalogowany_zawodnik}! 🎯</p></div>", unsafe_allow_html=True)
         
-        df_historia = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
+        df_historia = db.pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
         
         if df_historia.empty:
             st.info(T[lang]["home_no_data"])
@@ -706,7 +408,7 @@ else:
             """, unsafe_allow_html=True)
             
         st.write(f"**{T[lang]['upcoming_events']}**")
-        df_my_cal = pobierz_kalendarz_osobisty(st.session_state.zalogowany_zawodnik)
+        df_my_cal = db.pobierz_kalendarz_osobisty(st.session_state.zalogowany_zawodnik)
         if df_my_cal.empty:
             st.info(T[lang]["no_events"])
         else:
@@ -751,10 +453,10 @@ else:
         if has_paused_session:
             st.warning(T[lang]["unfinished_msg"])
             c_r, c_d = st.columns(2)
-            if c_r.button(T[lang]["resume_btn"], type="primary", use_container_width=True):
+            if c_r.button(T[lang]["resume_btn"], type="primary"):
                 st.session_state.started = True
                 st.rerun()
-            if c_d.button(T[lang]["discard_btn"], use_container_width=True):
+            if c_d.button(T[lang]["discard_btn"]):
                 reset()
                 st.rerun()
         else:
@@ -792,10 +494,10 @@ else:
         if has_paused_session:
             st.warning(T[lang]["unfinished_msg"])
             c_rm, c_dm = st.columns(2)
-            if c_rm.button(T[lang]["resume_btn"], type="primary", use_container_width=True, key="res_multi"):
+            if c_rm.button(T[lang]["resume_btn"], type="primary", key="res_multi"):
                 st.session_state.started = True
                 st.rerun()
-            if c_dm.button(T[lang]["discard_btn"], use_container_width=True, key="disc_multi"):
+            if c_dm.button(T[lang]["discard_btn"], key="disc_multi"):
                 reset()
                 st.rerun()
         else:
@@ -834,7 +536,7 @@ else:
         if col_r2.button(T[lang]["rank_btn"], type="secondary", use_container_width=True):
             if not szukany_kod: st.warning("Bitte gib den Raumcode ein!" if lang == "DE" else "Podaj kod pokoju!")
             else:
-                df_rank = pobierz_ranking()
+                df_rank = db.pobierz_ranking()
                 if df_rank.empty: st.info(T[lang]["rank_empty"])
                 else:
                     df_rank["Datetime"] = pd.to_datetime(df_rank["DataCzas"], format="%Y-%m-%d %H:%M:%S", errors='coerce')
@@ -868,7 +570,7 @@ else:
         st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['menu_stats']}</p></div>", unsafe_allow_html=True)
         st.markdown("""<style>div[data-testid="stVegaLiteChart"] { width: 100%; overflow-x: auto; }</style>""", unsafe_allow_html=True)
         
-        df = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
+        df = db.pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
         
         if df.empty:
             st.info(T[lang]["stat_no_data"])
@@ -965,12 +667,12 @@ else:
                 
                 if st.form_submit_button(T[lang]["add_event"]):
                     if nowa_nazwa.strip():
-                        dodaj_kalendarz_osobisty(st.session_state.zalogowany_zawodnik, nowa_data, nowa_nazwa, nowy_adres, "")
+                        db.dodaj_kalendarz_osobisty(st.session_state.zalogowany_zawodnik, nowa_data, nowa_nazwa, nowy_adres, "")
                         st.rerun()
                     else:
                         st.error("Podaj nazwę!" if lang == "PL" else "Bitte Namen eingeben!")
                         
-            df_my_cal = pobierz_kalendarz_osobisty(st.session_state.zalogowany_zawodnik)
+            df_my_cal = db.pobierz_kalendarz_osobisty(st.session_state.zalogowany_zawodnik)
             if df_my_cal.empty:
                 st.info(T[lang]["no_events"])
             else:
@@ -978,24 +680,33 @@ else:
                 df_my_cal = df_my_cal.sort_values('Datetime')
                 
                 for _, row in df_my_cal.iterrows():
-                    col_e1, col_e2 = st.columns([6, 1])
-                    with col_e1:
-                        adres_text = str(row.get("Adres", "")).strip()
-                        adres_html = ""
-                        if adres_text:
-                            encoded_adres = urllib.parse.quote(adres_text)
-                            maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                            adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
-                            
-                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>🗓️ {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
-                    with col_e2:
-                        st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
-                        if st.button("🗑️", key=f"del_{row['ID']}", use_container_width=True):
-                            usun_kalendarz_osobisty(row['ID'])
-                            st.rerun()
+                    adres_text = str(row.get("Adres", "")).strip()
+                    adres_html = ""
+                    if adres_text:
+                        encoded_adres = urllib.parse.quote(adres_text)
+                        maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
+                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
+                        
+                    del_link = f"?u={urllib.parse.quote(st.session_state.zalogowany_zawodnik)}&del={row['ID']}"
+                    trash_btn = f"<a href='{del_link}' target='_self' style='text-decoration: none; display: flex; justify-content: center; align-items: center; width: 44px; height: 44px; background-color: #fff; border: 1px solid #ffcdd2; color: #d32f2f; border-radius: 8px; font-size: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s;'>🗑️</a>"
+                    
+                    st.markdown(f"""
+                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 8px; border-left: 5px solid #1E88E5; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+                        <div style='display: flex; justify-content: space-between; align-items: center;'>
+                            <div style='flex-grow: 1; padding-right: 10px;'>
+                                <b style='color: #1E88E5; font-size: 14px;'>🗓️ {row['Data']}</b><br>
+                                <span style='font-size: 15px; font-weight: 500; color: #333;'>{row['Nazwa']}</span>
+                                {adres_html}
+                            </div>
+                            <div>
+                                {trash_btn}
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
         with tab_diary:
-            df_hist = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
+            df_hist = db.pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
             if df_hist.empty:
                 st.info(T[lang]["home_no_data"])
             else:
@@ -1059,7 +770,7 @@ else:
                     if nw: st.session_state[f"{k}_{d}"] = nw
                     dane_sprzetu[f"{k}_{d}"] = st.session_state[f"{k}_{d}"]
                 
-            if zapisz_profil_sprzetu(st.session_state.zalogowany_zawodnik, dane_sprzetu):
+            if db.zapisz_profil_sprzetu(st.session_state.zalogowany_zawodnik, dane_sprzetu):
                 st.success("✅ Gespeichert!" if lang=="DE" else "✅ Zapisano!")
                 time.sleep(1)
                 st.rerun()
