@@ -11,19 +11,55 @@ from streamlit_option_menu import option_menu
 # --- IMPORTY Z NASZYCH NOWYCH PLIKÓW ---
 from config import NAZWA_ARKUSZA, ADRES_APLIKACJI, KOD_KLUBU, dystanse_lista, T
 import database as db
+import pro_features as pro # Import nowego modułu Pro!
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT (CZYSTY KOD, ZDROWE ZACHOWANIE NA TELEFONACH) ---
+# --- UKRYCIE INTERFEJSU STREAMLIT I PANCERNA SIATKA "GRID" DLA TELEFONÓW ---
 st.markdown("""
     <style>
         header {visibility: hidden;}
         footer {visibility: hidden;}
+        
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
+            max-width: 100% !important;
+            overflow-x: hidden !important; 
         }
         .stDeployButton {display:none;}
+        
+        @media screen and (max-width: 768px) {
+            div[data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                width: 100% !important;
+                gap: 4px !important; 
+            }
+            div[data-testid="column"] {
+                width: 0 !important; 
+                min-width: 0 !important;
+                flex: 1 1 0% !important; 
+                padding: 0 !important;
+            }
+            div[data-testid="stButton"] { width: 100% !important; }
+            div[data-testid="stButton"] > button {
+                width: 100% !important;
+                padding: 0 !important;
+                min-height: 44px !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+            }
+            div[data-testid="stButton"] > button p {
+                font-size: 13px !important;
+                margin: 0 !important;
+                white-space: nowrap !important; 
+                overflow: hidden !important;   
+                text-overflow: clip !important;
+            }
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -135,7 +171,7 @@ def add_extra_arrows(val):
         st.session_state.extra_arrows += val
         save_backup()
 
-# --- SPRAWDZENIE AKCJI W URL (AUTO-LOGIN / USUWANIE KALENDARZA) ---
+# --- SPRAWDZENIE AKCJI W URL ---
 if "del" in st.query_params:
     db.usun_kalendarz_osobisty(st.query_params["del"])
     del st.query_params["del"] 
@@ -145,15 +181,6 @@ if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
     wykonaj_logowanie(st.query_params["u"])
 
 has_paused_session = bool(st.session_state.get('event_info', {}))
-
-# --- INICJALIZACJA ZMIENNYCH SPRZĘTU (ZABEZPIECZENIE) ---
-for d in dystanse_lista:
-    if f"aus_{d}" not in st.session_state: st.session_state[f"aus_{d}"] = ""
-    if f"hoehe_{d}" not in st.session_state: st.session_state[f"hoehe_{d}"] = ""
-    if f"seite_{d}" not in st.session_state: st.session_state[f"seite_{d}"] = ""
-for z in ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]:
-    if z not in st.session_state: st.session_state[z] = ""
-
 
 # =====================================================================
 # EKRAN LOGOWANIA
@@ -214,15 +241,22 @@ if st.session_state.started:
     arrows_per_end = info['StrzalWSerii']
     max_total_score = st.session_state.max_total_arrows * 10
     
-    def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
+    # Wyświetlanie aktualnej pogody
+    pogoda_txt = pro.pobierz_pogode()
     
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
     if info.get('KodMeczu', ""): tytul += f" [⚔️ {info['KodMeczu']}]"
-    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Dystans']}</div>", unsafe_allow_html=True)
+    
+    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Dystans']} <br> {pogoda_txt}</div>", unsafe_allow_html=True)
+
+    # NOWOŚĆ: Zwijany stoper turniejowy
+    with st.expander("⏱️ Timer / Stoppuhr"):
+        pro.render_stopwatch(lang)
 
     st.radio("Punkty", options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], horizontal=True, index=None, key="radio_input", on_change=handle_radio_click, label_visibility="collapsed")
     st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
+    def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
@@ -276,7 +310,7 @@ if st.session_state.started:
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
 
-    # --- OBLICZENIA DO PODSUMOWANIA ---
+    # OBLICZENIA DO PODSUMOWANIA
     total_points = sum(get_num(s) for s in scores)
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
     total_arrows_shot = len(scores) + st.session_state.extra_arrows
@@ -286,9 +320,9 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
-    # --- KARTA STATYSTYK "GESAMTERGEBNIS" ZARAZ POD PUNKTAMI ---
+    # --- KARTA STATYSTYK Z WYKRESEM ZMĘCZENIA ---
     st.markdown(f"""
-    <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+    <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
         <p style='margin: 0 0 10px 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['total_score']}</p>
         <div style='display: flex; justify-content: space-between; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;'>
             <div><span style='font-size: 12px; color: gray;'>{T[lang]['pts']}</span><br><b style='font-size: 18px;'>{total_points}</b><span style='font-size:12px; color:gray;'>/{max_total_score}</span></div>
@@ -303,6 +337,11 @@ if st.session_state.started:
         </div>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Wykres zmęczenia z naszego nowego pliku
+    wykres = pro.wykres_zmeczenia(scores, lang)
+    if wykres is not None:
+        st.altair_chart(wykres, use_container_width=True)
 
     # --- KOKPIT ROZGRZEWKI ---
     st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: 2px; margin-top: 5px; text-align: center; font-weight: bold;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
@@ -332,7 +371,6 @@ if st.session_state.started:
     if c_cancel.button(T[lang]["cancel_btn"], use_container_width=True):
         reset()
         st.rerun()
-
 
 # ---------------------------------------------------------------------
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
@@ -424,10 +462,10 @@ else:
         if has_paused_session:
             st.warning(T[lang]["unfinished_msg"])
             c_r, c_d = st.columns(2)
-            if c_r.button(T[lang]["resume_btn"], type="primary", use_container_width=True):
+            if c_r.button(T[lang]["resume_btn"], type="primary"):
                 st.session_state.started = True
                 st.rerun()
-            if c_d.button(T[lang]["discard_btn"], use_container_width=True):
+            if c_d.button(T[lang]["discard_btn"]):
                 reset()
                 st.rerun()
         else:
@@ -465,10 +503,10 @@ else:
         if has_paused_session:
             st.warning(T[lang]["unfinished_msg"])
             c_rm, c_dm = st.columns(2)
-            if c_rm.button(T[lang]["resume_btn"], type="primary", use_container_width=True, key="res_multi"):
+            if c_rm.button(T[lang]["resume_btn"], type="primary", key="res_multi"):
                 st.session_state.started = True
                 st.rerun()
-            if c_dm.button(T[lang]["discard_btn"], use_container_width=True, key="disc_multi"):
+            if c_dm.button(T[lang]["discard_btn"], key="disc_multi"):
                 reset()
                 st.rerun()
         else:
