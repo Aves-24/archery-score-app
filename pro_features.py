@@ -5,7 +5,7 @@ import altair as alt
 import requests
 
 # ==========================================
-# 1. PROFESJONALNY STOPER ŁUCZNICZY (JS)
+# 1. PROFESJONALNY STOPER ŁUCZNICZY (Z DŹWIĘKIEM)
 # ==========================================
 def render_stopwatch(lang="DE"):
     txt_prep = "Przygotowanie" if lang == "PL" else "Vorbereitung"
@@ -66,12 +66,35 @@ def render_stopwatch(lang="DE"):
             let phase = 0; // 0=idle, 1=prep, 2=shoot
             let timeLeft = 0;
             let wakeLock = null;
+            let audioCtx = null;
 
             const timeDisplay = document.getElementById('time');
             const statusDisplay = document.getElementById('status');
             const timerBox = document.getElementById('timer_box');
 
-            // Magia zapobiegająca wyłączaniu ekranu w telefonie!
+            // --- SYNTEZATOR DŹWIĘKU (Beep) ---
+            function playBeep(freq, type, duration, vol=0.5) {{
+                if (!audioCtx) {{
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }}
+                if (audioCtx.state === 'suspended') {{
+                    audioCtx.resume();
+                }}
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            }}
+
+            // Magia zapobiegająca wyłączaniu ekranu w telefonie
             async function requestWakeLock() {{
                 try {{
                     if ('wakeLock' in navigator) {{
@@ -89,22 +112,46 @@ def render_stopwatch(lang="DE"):
             function startTimer(shootSeconds) {{
                 stopTimer();
                 requestWakeLock();
+                
+                // Inicjalizacja dźwięku po kliknięciu (odblokowuje audio na telefonie)
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                // Sygnał startowy (2 gwizdki = podejście do linii)
+                playBeep(880, 'sine', 0.2);
+                setTimeout(() => playBeep(880, 'sine', 0.2), 300);
+
                 phase = 1;
                 timeLeft = 10; // 10 sekund przygotowania
                 updateUI(shootSeconds);
                 
                 timerInterval = setInterval(() => {{
                     timeLeft--;
+                    
                     if (timeLeft <= 0) {{
                         if (phase === 1) {{
                             phase = 2; // Przejście do strzelania
                             timeLeft = shootSeconds;
+                            playBeep(1000, 'sine', 0.6, 0.8); // 1 długi dźwięk - start strzelania
                         }} else if (phase === 2) {{
                             phase = 0; // Koniec
                             clearInterval(timerInterval);
                             releaseWakeLock();
+                            
+                            // 3 sygnały - koniec czasu
+                            playBeep(700, 'sine', 0.3);
+                            setTimeout(() => playBeep(700, 'sine', 0.3), 400);
+                            setTimeout(() => playBeep(700, 'sine', 0.5), 800);
+                        }}
+                    }} else {{
+                        // --- Odliczanie "pik" co sekundę ---
+                        if (phase === 1) {{
+                            playBeep(600, 'sine', 0.1, 0.2); // pikanie na przygotowaniu
+                        }} else if (phase === 2 && timeLeft <= 10) {{
+                            playBeep(600, 'sine', 0.1, 0.2); // pikanie w ostatnich 10 sekundach
                         }}
                     }}
+                    
                     updateUI(shootSeconds);
                 }}, 1000);
             }}
@@ -157,7 +204,6 @@ def render_stopwatch(lang="DE"):
 # ==========================================
 def pobierz_pogode():
     try:
-        # Pobieramy pogodę dla centralnej Europy (Niemcy) jako domyślną
         res = requests.get("https://api.open-meteo.com/v1/forecast?latitude=51.33&longitude=6.34&current_weather=true", timeout=2)
         dane = res.json()
         temp = dane['current_weather']['temperature']
@@ -170,7 +216,7 @@ def pobierz_pogode():
 # 3. ANALIZA ZMĘCZENIA (Runda 1 vs Runda 2)
 # ==========================================
 def wykres_zmeczenia(scores, lang="DE"):
-    if len(scores) < 6: # Rysuj tylko jeśli oddano przynajmniej jedną serię
+    if len(scores) < 6:
         return None
         
     def get_val(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
