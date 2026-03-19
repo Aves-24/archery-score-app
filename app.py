@@ -152,6 +152,15 @@ if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
 
 has_paused_session = bool(st.session_state.get('event_info', {}))
 
+# --- INICJALIZACJA ZMIENNYCH SPRZĘTU (ZABEZPIECZENIE) ---
+for d in dystanse_lista:
+    if f"aus_{d}" not in st.session_state: st.session_state[f"aus_{d}"] = ""
+    if f"hoehe_{d}" not in st.session_state: st.session_state[f"hoehe_{d}"] = ""
+    if f"seite_{d}" not in st.session_state: st.session_state[f"seite_{d}"] = ""
+for z in ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]:
+    if z not in st.session_state: st.session_state[z] = ""
+
+
 # =====================================================================
 # EKRAN LOGOWANIA
 # =====================================================================
