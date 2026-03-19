@@ -9,7 +9,24 @@ import altair as alt
 import urllib.parse
 from streamlit_option_menu import option_menu
 
-st.set_page_config(page_title="SFT Schießzettel", layout="centered")
+st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
+
+# --- UKRYCIE INTERFEJSU STREAMLIT (WYGLĄD NATYWNEJ APLIKACJI) ---
+st.markdown("""
+    <style>
+        /* Ukrycie paska nagłówka z przyciskiem Deploy i menu */
+        header {visibility: hidden;}
+        /* Ukrycie stopki na dole */
+        footer {visibility: hidden;}
+        /* Zmniejszenie pustego marginesu na samej górze ekranu */
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        /* Ukrycie guzika "Manage app" (nawet dla Ciebie, żeby nie psuł widoku) */
+        .stDeployButton {display:none;}
+    </style>
+""", unsafe_allow_html=True)
 
 # --- KONFIGURACJA GŁÓWNA ---
 NAZWA_ARKUSZA = "Karta_Punktowa" 
@@ -80,7 +97,8 @@ T = {
         "add_event": "➕ Dodaj wydarzenie",
         "event_date": "Data",
         "event_event_name": "Nazwa wydarzenia",
-        "event_address": "Adres (opcjonalnie)"
+        "event_address": "Adres (opcjonalnie)",
+        "nav_btn": "Nawiguj"
     },
     "DE": {
         "title": "🏹 Schießzettel",
@@ -143,7 +161,8 @@ T = {
         "add_event": "➕ Ereignis hinzufügen",
         "event_date": "Datum",
         "event_event_name": "Name des Ereignisses",
-        "event_address": "Adresse (optional)"
+        "event_address": "Adresse (optional)",
+        "nav_btn": "Route starten"
     }
 }
 
@@ -341,7 +360,7 @@ def usun_kalendarz_osobisty(event_id):
 # --- FUNKCJE POMOCNICZE LOGOWANIA ---
 def wykonaj_logowanie(czysta_nazwa):
     st.session_state.zalogowany_zawodnik = czysta_nazwa
-    st.query_params["u"] = czysta_nazwa # ZAPIS AUTO-LOGINU!
+    st.query_params["u"] = czysta_nazwa 
     load_user_settings(czysta_nazwa)
     
     plik = get_autosave_file()
