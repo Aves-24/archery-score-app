@@ -14,7 +14,7 @@ import database as db
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT (CZYSTY KOD, BEZ ZEPSUTEGO CSS) ---
+# --- UKRYCIE INTERFEJSU STREAMLIT (CZYSTY KOD, ZDROWE ZACHOWANIE NA TELEFONACH) ---
 st.markdown("""
     <style>
         header {visibility: hidden;}
@@ -276,7 +276,7 @@ if st.session_state.started:
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
 
-    # OBLICZENIA DO PODSUMOWANIA
+    # --- OBLICZENIA DO PODSUMOWANIA ---
     total_points = sum(get_num(s) for s in scores)
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
     total_arrows_shot = len(scores) + st.session_state.extra_arrows
@@ -286,7 +286,25 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
-    # --- KOKPIT STEROWANIA W NATYWNYM, BEZPIECZNYM UKŁADZIE STREAMLITA ---
+    # --- KARTA STATYSTYK "GESAMTERGEBNIS" ZARAZ POD PUNKTAMI ---
+    st.markdown(f"""
+    <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+        <p style='margin: 0 0 10px 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['total_score']}</p>
+        <div style='display: flex; justify-content: space-between; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;'>
+            <div><span style='font-size: 12px; color: gray;'>{T[lang]['pts']}</span><br><b style='font-size: 18px;'>{total_points}</b><span style='font-size:12px; color:gray;'>/{max_total_score}</span></div>
+            <div><span style='font-size: 12px; color: gray;'>{T[lang]['arrow_cnt']}</span><br><b style='font-size: 18px;'>{total_arrows_shot}</b></div>
+            <div><span style='font-size: 12px; color: gray;'>{T[lang]['eff']}</span><br><b style='font-size: 18px; color: #2E8B57;'>{percent:.1f}%</b></div>
+        </div>
+        <div style='display: flex; justify-content: space-around; text-align: center;'>
+            <div><b style='color: #D4AC0D; font-size: 14px;'>X</b><br><span style='font-size: 16px; font-weight: bold;'>{count_x}</span></div>
+            <div><b style='color: #D4AC0D; font-size: 14px;'>10</b><br><span style='font-size: 16px; font-weight: bold;'>{count_10}</span></div>
+            <div><b style='color: #FBC02D; font-size: 14px;'>9</b><br><span style='font-size: 16px; font-weight: bold;'>{count_9}</span></div>
+            <div><b style='color: gray; font-size: 14px;'>M</b><br><span style='font-size: 16px; font-weight: bold;'>{count_m}</span></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # --- KOKPIT ROZGRZEWKI ---
     st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: 2px; margin-top: 5px; text-align: center; font-weight: bold;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
     cw1, cw2, cw3 = st.columns(3)
     cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
@@ -295,6 +313,7 @@ if st.session_state.started:
 
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     
+    # --- KOKPIT AKCJI ---
     c_save, c_pause, c_cancel = st.columns(3)
     if c_save.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
@@ -313,26 +332,6 @@ if st.session_state.started:
     if c_cancel.button(T[lang]["cancel_btn"], use_container_width=True):
         reset()
         st.rerun()
-
-    st.write("")
-    
-    # --- KARTA STATYSTYK "GESAMTERGEBNIS" NA SAMYM DOLE ---
-    st.markdown(f"""
-    <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-        <p style='margin: 0 0 10px 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['total_score']}</p>
-        <div style='display: flex; justify-content: space-between; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;'>
-            <div><span style='font-size: 12px; color: gray;'>{T[lang]['pts']}</span><br><b style='font-size: 18px;'>{total_points}</b><span style='font-size:12px; color:gray;'>/{max_total_score}</span></div>
-            <div><span style='font-size: 12px; color: gray;'>{T[lang]['arrow_cnt']}</span><br><b style='font-size: 18px;'>{total_arrows_shot}</b></div>
-            <div><span style='font-size: 12px; color: gray;'>{T[lang]['eff']}</span><br><b style='font-size: 18px; color: #2E8B57;'>{percent:.1f}%</b></div>
-        </div>
-        <div style='display: flex; justify-content: space-around; text-align: center;'>
-            <div><b style='color: #D4AC0D; font-size: 14px;'>X</b><br><span style='font-size: 16px; font-weight: bold;'>{count_x}</span></div>
-            <div><b style='color: #D4AC0D; font-size: 14px;'>10</b><br><span style='font-size: 16px; font-weight: bold;'>{count_10}</span></div>
-            <div><b style='color: #FBC02D; font-size: 14px;'>9</b><br><span style='font-size: 16px; font-weight: bold;'>{count_9}</span></div>
-            <div><b style='color: gray; font-size: 14px;'>M</b><br><span style='font-size: 16px; font-weight: bold;'>{count_m}</span></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------
@@ -425,10 +424,10 @@ else:
         if has_paused_session:
             st.warning(T[lang]["unfinished_msg"])
             c_r, c_d = st.columns(2)
-            if c_r.button(T[lang]["resume_btn"], type="primary"):
+            if c_r.button(T[lang]["resume_btn"], type="primary", use_container_width=True):
                 st.session_state.started = True
                 st.rerun()
-            if c_d.button(T[lang]["discard_btn"]):
+            if c_d.button(T[lang]["discard_btn"], use_container_width=True):
                 reset()
                 st.rerun()
         else:
@@ -466,10 +465,10 @@ else:
         if has_paused_session:
             st.warning(T[lang]["unfinished_msg"])
             c_rm, c_dm = st.columns(2)
-            if c_rm.button(T[lang]["resume_btn"], type="primary", key="res_multi"):
+            if c_rm.button(T[lang]["resume_btn"], type="primary", use_container_width=True, key="res_multi"):
                 st.session_state.started = True
                 st.rerun()
-            if c_dm.button(T[lang]["discard_btn"], key="disc_multi"):
+            if c_dm.button(T[lang]["discard_btn"], use_container_width=True, key="disc_multi"):
                 reset()
                 st.rerun()
         else:
