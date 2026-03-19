@@ -259,16 +259,26 @@ if st.session_state.started:
         </style>
     """, unsafe_allow_html=True)
 
+    def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
+
     info = st.session_state.event_info
     scores = st.session_state.scores
     arrows_per_end = info['StrzalWSerii']
     max_total_score = st.session_state.max_total_arrows * 10
     
+    # --- AUTOMATYCZNY ZAPIS POŁOWY TURNIEJU I POGODA ---
     if len(scores) >= st.session_state.max_arrows_per_round and not st.session_state.pogoda_r2_pobrana:
         st.session_state.pogoda_txt = pro.pobierz_pogode()
         st.session_state.pogoda_r2_pobrana = True
-    
-    def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
+        
+        # Jeśli to Multi, wyślij wynik połowy do chmury!
+        kod_meczu = info.get("KodMeczu", "")
+        if kod_meczu:
+            punkty_r1 = sum(get_num(s) for s in scores[:st.session_state.max_arrows_per_round])
+            x_r1 = scores[:st.session_state.max_arrows_per_round].count("X")
+            x10_r1 = scores[:st.session_state.max_arrows_per_round].count("10") + x_r1
+            # Zapis z tagiem (1/2)
+            db.zapisz_wynik_grupowy(f"{st.session_state.zalogowany_zawodnik} (1/2)", kod_meczu, punkty_r1, x10_r1, x_r1)
     
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
     if info.get('KodMeczu', ""): tytul += f" [⚔️ {info['KodMeczu']}]"
@@ -391,6 +401,46 @@ if st.session_state.started:
     if c_cancel.button(T[lang]["cancel_btn"], use_container_width=True):
         reset()
         st.rerun()
+
+    # --- TABELA RANKINGOWA W TRAKCIE TURNIEJU (PO POŁOWIE) ---
+    kod_meczu = info.get("KodMeczu", "")
+    if kod_meczu and len(scores) >= st.session_state.max_arrows_per_round:
+        st.write("")
+        tytul_rank = "🏆 Zwischenstand (Halbzeit)" if lang == "DE" else "🏆 Wyniki na półmetku"
+        with st.expander(tytul_rank, expanded=True):
+            if st.button("🔄 Refresh", use_container_width=True, key="ref_halbzeit"):
+                db.pobierz_ranking.clear() # Wymusza pobranie świeżych danych
+            
+            df_rank = db.pobierz_ranking()
+            if df_rank.empty: 
+                st.info(T[lang]["rank_empty"])
+            else:
+                df_rank["Datetime"] = pd.to_datetime(df_rank["DataCzas"], format="%Y-%m-%d %H:%M:%S", errors='coerce')
+                df_rank = df_rank.dropna(subset=['Datetime'])
+                limit_czasu = datetime.now() - timedelta(hours=12)
+                
+                df_filtrowane = df_rank[(df_rank["Datetime"] >= limit_czasu) & (df_rank["Kod"].astype(str) == str(kod_meczu))]
+                
+                if df_filtrowane.empty: 
+                    st.info(T[lang]["rank_empty"])
+                else:
+                    df_filtrowane["Punkty"] = pd.to_numeric(df_filtrowane["Punkty"])
+                    df_filtrowane["10_i_X"] = pd.to_numeric(df_filtrowane["10_i_X"])
+                    df_filtrowane["Same X"] = pd.to_numeric(df_filtrowane["Same X"])
+                    df_filtrowane = df_filtrowane.sort_values(by=["Punkty", "10_i_X", "Same X"], ascending=[False, False, False]).reset_index(drop=True)
+                    
+                    for idx, row in df_filtrowane.iterrows():
+                        m = "🥇" if idx == 0 else ("🥈" if idx == 1 else ("🥉" if idx == 2 else f"**{idx+1}.**"))
+                        c_bg = "#FFF9C4" if idx == 0 else "#f9f9f9" 
+                        c_b = "#D4AC0D" if idx == 0 else "#ccc"
+                        st.markdown(f"""
+                        <div style='background-color: {c_bg}; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 5px solid {c_b};'>
+                            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                                <h4 style='margin: 0; color: #333; font-size: 15px;'>{m} {row['Zawodnik']}</h4>
+                                <b style='font-size: 16px;'>{row['Punkty']} <span style='font-size:12px; font-weight:normal; color:gray;'>pts</span></b>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
