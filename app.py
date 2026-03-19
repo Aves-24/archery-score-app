@@ -14,7 +14,7 @@ import database as db
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT I BEZPIECZNY UKŁAD "TABELI" ---
+# --- UKRYCIE INTERFEJSU STREAMLIT I PANCERNA SIATKA "GRID" DLA TELEFONÓW ---
 st.markdown("""
     <style>
         header {visibility: hidden;}
@@ -23,32 +23,43 @@ st.markdown("""
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
+            max-width: 100% !important;
             overflow-x: hidden !important; 
         }
         .stDeployButton {display:none;}
         
-        /* Wymuszenie równego podziału kolumn bez rozpychania ekranu na telefonie */
+        /* BEZWZGLĘDNE WYMUSZENIE 3 RÓWNYCH KOLUMN NA TELEFONACH */
         @media screen and (max-width: 768px) {
             div[data-testid="stHorizontalBlock"] {
+                display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: nowrap !important;
-                gap: 5px !important; 
+                width: 100% !important;
+                gap: 4px !important; 
             }
             div[data-testid="column"] {
-                width: auto !important; 
+                width: 0 !important; /* Odbiera przeglądarce prawo do rozpychania */
                 min-width: 0 !important;
-                flex: 1 1 0px !important; 
+                flex: 1 1 0% !important; /* Sztywny podział na równe części */
                 padding: 0 !important;
             }
-            .stButton > button {
+            div[data-testid="stButton"] {
                 width: 100% !important;
-                padding: 0px 2px !important;
-                min-height: 44px !important;
             }
-            .stButton > button p {
+            div[data-testid="stButton"] > button {
+                width: 100% !important;
+                padding: 0 !important;
+                min-height: 44px !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+            }
+            div[data-testid="stButton"] > button p {
                 font-size: 13px !important;
                 margin: 0 !important;
-                word-wrap: break-word !important;
+                white-space: nowrap !important; /* Zakaz łamania tekstu w przycisku */
+                overflow: hidden !important;   /* Ukrycie tego, co ewentualnie wystaje */
+                text-overflow: clip !important;
             }
         }
     </style>
