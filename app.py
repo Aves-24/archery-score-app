@@ -15,16 +15,51 @@ import pro_features as pro
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT ---
+# --- UKRYCIE INTERFEJSU STREAMLIT I PANCERNA SIATKA "GRID" DLA TELEFONÓW ---
 st.markdown("""
     <style>
         header {visibility: hidden;}
         footer {visibility: hidden;}
+        
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
+            max-width: 100% !important;
+            overflow-x: hidden !important; 
         }
         .stDeployButton {display:none;}
+        
+        @media screen and (max-width: 768px) {
+            div[data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                width: 100% !important;
+                gap: 4px !important; 
+            }
+            div[data-testid="column"] {
+                width: 0 !important; 
+                min-width: 0 !important;
+                flex: 1 1 0% !important; 
+                padding: 0 !important;
+            }
+            div[data-testid="stButton"] { width: 100% !important; }
+            div[data-testid="stButton"] > button {
+                width: 100% !important;
+                padding: 0 !important;
+                min-height: 44px !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+            }
+            div[data-testid="stButton"] > button p {
+                font-size: 13px !important;
+                margin: 0 !important;
+                white-space: nowrap !important; 
+                overflow: hidden !important;   
+                text-overflow: clip !important;
+            }
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -32,6 +67,7 @@ st.markdown("""
 if 'lang' not in st.session_state: st.session_state.lang = "DE" 
 if 'zalogowany_zawodnik' not in st.session_state: st.session_state.zalogowany_zawodnik = None
 if 'aktywne_dystanse' not in st.session_state: st.session_state.aktywne_dystanse = ["18m", "30m", "70m"]
+if 'ostatni_kod' not in st.session_state: st.session_state.ostatni_kod = "" # PAMIĘĆ POKOJU
 if 'started' not in st.session_state: 
     st.session_state.started = False
     st.session_state.scores = []
@@ -48,7 +84,11 @@ def get_autosave_file(): return f"autosave_{st.session_state.zalogowany_zawodnik
 def save_user_settings():
     if st.session_state.zalogowany_zawodnik:
         with open(f"settings_{st.session_state.zalogowany_zawodnik}.json", "w") as f:
-            json.dump({"aktywne_dystanse": st.session_state.aktywne_dystanse, "lang": st.session_state.lang}, f)
+            json.dump({
+                "aktywne_dystanse": st.session_state.aktywne_dystanse, 
+                "lang": st.session_state.lang,
+                "ostatni_kod": st.session_state.ostatni_kod # Zapisujemy kod do pamięci telefonu
+            }, f)
 
 def load_user_settings(zawodnik):
     plik = f"settings_{zawodnik}.json"
@@ -58,6 +98,7 @@ def load_user_settings(zawodnik):
                 data = json.load(f)
                 st.session_state.aktywne_dystanse = data.get("aktywne_dystanse", ["18m", "30m", "70m"])
                 st.session_state.lang = data.get("lang", "DE") 
+                st.session_state.ostatni_kod = data.get("ostatni_kod", "") # Ładujemy zapamiętany kod
         except: pass
 
 def wykonaj_logowanie(czysta_nazwa):
@@ -300,6 +341,7 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
+    # --- KARTA STATYSTYK Z WYKRESEM ZMĘCZENIA ---
     st.markdown(f"""
     <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
         <p style='margin: 0 0 10px 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['total_score']}</p>
@@ -321,6 +363,7 @@ if st.session_state.started:
     if wykres is not None:
         st.altair_chart(wykres, use_container_width=True)
 
+    # --- KOKPIT ROZGRZEWKI ---
     st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: 2px; margin-top: 5px; text-align: center; font-weight: bold;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
     cw1, cw2, cw3 = st.columns(3)
     cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
@@ -329,6 +372,7 @@ if st.session_state.started:
 
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     
+    # --- KOKPIT AKCJI ---
     c_save, c_pause, c_cancel = st.columns(3)
     if c_save.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
@@ -496,31 +540,49 @@ else:
 
             st.write("")
             if st.button(T[lang]["start_multi_btn"], type="primary", use_container_width=True):
-                if not kod_meczu.strip(): st.error("Bitte gib einen Code ein!" if lang == "DE" else "Podaj kod!")
+                if not kod_meczu.strip(): 
+                    st.error("Bitte gib einen Code ein!" if lang == "DE" else "Podaj kod!")
                 else:
-                    czesci = []
-                    if st.session_state[f'aus_{dystans_multi}']: czesci.append(f"A:{st.session_state[f'aus_{dystans_multi}']}")
-                    if st.session_state[f'hoehe_{dystans_multi}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans_multi}']}")
-                    if st.session_state[f'seite_{dystans_multi}']: czesci.append(f"S:{st.session_state[f'seite_{dystans_multi}']}")
-                    
-                    st.session_state.event_info = {
-                        "Data": date.today().strftime("%d.%m.%Y"), "Typ": T[lang]["training"], "Nazwa": "Mini-Turnier",
-                        "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans_multi, "KodMeczu": kod_meczu.strip(),
-                        "CelownikSkala": " | ".join(czesci) if czesci else "-"
-                    }
-                    st.session_state.pogoda_txt = pro.pobierz_pogode() 
-                    st.session_state.pogoda_r2_pobrana = False
-                    st.session_state.max_arrows_per_round = 36
-                    st.session_state.max_total_arrows = 72
-                    st.session_state.started = True
-                    save_backup()
-                    st.rerun()
+                    # --- BRAMKARZ (BLOKADA PODWÓJNEGO STARTU) ---
+                    df_rank = db.pobierz_ranking()
+                    juz_gral = False
+                    if not df_rank.empty:
+                        df_rank["Datetime"] = pd.to_datetime(df_rank["DataCzas"], format="%Y-%m-%d %H:%M:%S", errors='coerce')
+                        limit_czasu = datetime.now() - timedelta(hours=12)
+                        df_filtrowane = df_rank[(df_rank["Datetime"] >= limit_czasu) & (df_rank["Kod"].astype(str) == str(kod_meczu.strip())) & (df_rank["Zawodnik"] == st.session_state.zalogowany_zawodnik)]
+                        if not df_filtrowane.empty:
+                            juz_gral = True
+                            
+                    if juz_gral:
+                        st.error("❌ Już brałeś udział w tym pokoju!" if lang == "PL" else "❌ Du hast an diesem Raum bereits teilgenommen!")
+                    else:
+                        st.session_state.ostatni_kod = kod_meczu.strip()
+                        save_user_settings() # Zapisujemy kod do pamięci
+                        
+                        czesci = []
+                        if st.session_state[f'aus_{dystans_multi}']: czesci.append(f"A:{st.session_state[f'aus_{dystans_multi}']}")
+                        if st.session_state[f'hoehe_{dystans_multi}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans_multi}']}")
+                        if st.session_state[f'seite_{dystans_multi}']: czesci.append(f"S:{st.session_state[f'seite_{dystans_multi}']}")
+                        
+                        st.session_state.event_info = {
+                            "Data": date.today().strftime("%d.%m.%Y"), "Typ": T[lang]["training"], "Nazwa": "Mini-Turnier",
+                            "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans_multi, "KodMeczu": kod_meczu.strip(),
+                            "CelownikSkala": " | ".join(czesci) if czesci else "-"
+                        }
+                        st.session_state.pogoda_txt = pro.pobierz_pogode() 
+                        st.session_state.pogoda_r2_pobrana = False
+                        st.session_state.max_arrows_per_round = 36
+                        st.session_state.max_total_arrows = 72
+                        st.session_state.started = True
+                        save_backup()
+                        st.rerun()
                 
         st.write("")
         st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>{T[lang]['rank_title']}</p></div>", unsafe_allow_html=True)
         
         col_r1, col_r2 = st.columns([2,1])
-        szukany_kod = col_r1.text_input("Szukaj Kodu", max_chars=2, key="search_code", placeholder="z.B. 12", label_visibility="collapsed")
+        # PAMIĘĆ POKOJU W SZUKAJCE
+        szukany_kod = col_r1.text_input("Szukaj Kodu", max_chars=2, value=st.session_state.ostatni_kod, key="search_code", placeholder="z.B. 12", label_visibility="collapsed")
         
         if col_r2.button(T[lang]["rank_btn"], type="secondary", use_container_width=True):
             if not szukany_kod: st.warning("Bitte gib den Raumcode ein!" if lang == "DE" else "Podaj kod pokoju!")
