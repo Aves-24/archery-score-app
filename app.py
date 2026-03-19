@@ -11,7 +11,7 @@ from streamlit_option_menu import option_menu
 # --- IMPORTY Z NASZYCH NOWYCH PLIKÓW ---
 from config import NAZWA_ARKUSZA, ADRES_APLIKACJI, KOD_KLUBU, dystanse_lista, T
 import database as db
-import pro_features as pro # Import nowego modułu Pro!
+import pro_features as pro 
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
@@ -47,13 +47,14 @@ st.markdown("""
             div[data-testid="stButton"] > button {
                 width: 100% !important;
                 padding: 0 !important;
-                min-height: 44px !important;
+                min-height: 48px !important;
                 display: flex !important;
                 justify-content: center !important;
                 align-items: center !important;
+                font-weight: bold !important;
             }
             div[data-testid="stButton"] > button p {
-                font-size: 13px !important;
+                font-size: 15px !important;
                 margin: 0 !important;
                 white-space: nowrap !important; 
                 overflow: hidden !important;   
@@ -153,18 +154,14 @@ def reset():
     st.session_state.scores = []
     st.session_state.extra_arrows = 0
     st.session_state.event_info = {}
-    if 'radio_input' in st.session_state: del st.session_state['radio_input']
 
-def handle_radio_click():
-    if 'radio_input' in st.session_state:
-        val = st.session_state.radio_input
-        if val == "⌫" and len(st.session_state.scores) > 0: 
-            st.session_state.scores.pop()
-            save_backup()
-        elif val is not None and val != "⌫" and len(st.session_state.scores) < st.session_state.max_total_arrows:
-            st.session_state.scores.append(val)
-            save_backup()
-        st.session_state.radio_input = None 
+# SZYBKIE DODAWANIE Z PRZYCISKÓW
+def add_score(val):
+    if val == "⌫" and len(st.session_state.scores) > 0:
+        st.session_state.scores.pop()
+    elif val != "⌫" and len(st.session_state.scores) < st.session_state.max_total_arrows:
+        st.session_state.scores.append(val)
+    save_backup()
 
 def add_extra_arrows(val):
     if st.session_state.extra_arrows + val >= 0:
@@ -181,6 +178,15 @@ if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
     wykonaj_logowanie(st.query_params["u"])
 
 has_paused_session = bool(st.session_state.get('event_info', {}))
+
+# --- INICJALIZACJA ZMIENNYCH SPRZĘTU (ZABEZPIECZENIE) ---
+for d in dystanse_lista:
+    if f"aus_{d}" not in st.session_state: st.session_state[f"aus_{d}"] = ""
+    if f"hoehe_{d}" not in st.session_state: st.session_state[f"hoehe_{d}"] = ""
+    if f"seite_{d}" not in st.session_state: st.session_state[f"seite_{d}"] = ""
+for z in ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]:
+    if z not in st.session_state: st.session_state[z] = ""
+
 
 # =====================================================================
 # EKRAN LOGOWANIA
@@ -224,39 +230,48 @@ st.markdown(f"<div style='text-align: right; color: gray; font-size: 12px; margi
 # TRYB SKUPIENIA (TRWA STRZELANIE)
 # ---------------------------------------------------------------------
 if st.session_state.started:
-    st.markdown("""
-        <style>
-            div[data-testid="stRadio"] { margin-bottom: -20px !important; }
-            div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; justify-content: center !important; }
-            div[role="radiogroup"] label p { font-size: 18px !important; font-weight: 900 !important; padding: 0 !important; }
-            div[role="radiogroup"] label:nth-child(1) p, div[role="radiogroup"] label:nth-child(2) p, div[role="radiogroup"] label:nth-child(3) p { color: #D4AC0D !important; }
-            div[role="radiogroup"] label:nth-child(4) p, div[role="radiogroup"] label:nth-child(5) p { color: #E53935 !important; }
-            div[role="radiogroup"] label:nth-child(6) p, div[role="radiogroup"] label:nth-child(7) p { color: #1E88E5 !important; }
-            div[role="radiogroup"] label:nth-child(8) p, div[role="radiogroup"] label:nth-child(9) p { color: #757575 !important; }
-        </style>
-    """, unsafe_allow_html=True)
 
     info = st.session_state.event_info
     scores = st.session_state.scores
     arrows_per_end = info['StrzalWSerii']
     max_total_score = st.session_state.max_total_arrows * 10
     
-    # Wyświetlanie aktualnej pogody
-    pogoda_txt = pro.pobierz_pogode()
+    def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
     
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
     if info.get('KodMeczu', ""): tytul += f" [⚔️ {info['KodMeczu']}]"
     
+    pogoda_txt = pro.pobierz_pogode()
     st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Dystans']} <br> {pogoda_txt}</div>", unsafe_allow_html=True)
 
-    # NOWOŚĆ: Zwijany stoper turniejowy
     with st.expander("⏱️ Timer / Stoppuhr"):
         pro.render_stopwatch(lang)
 
-    st.radio("Punkty", options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], horizontal=True, index=None, key="radio_input", on_change=handle_radio_click, label_visibility="collapsed")
-    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+    # --- NOWA, PROFESJONALNA KLAWIATURA NUMERYCZNA ---
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    
+    # Rząd 1
+    k1, k2, k3, k4, k5, k6, k7 = st.columns(7)
+    k1.button("X", on_click=add_score, args=("X",), use_container_width=True)
+    k2.button("10", on_click=add_score, args=("10",), use_container_width=True)
+    k3.button("9", on_click=add_score, args=("9",), use_container_width=True)
+    k4.button("8", on_click=add_score, args=("8",), use_container_width=True)
+    k5.button("7", on_click=add_score, args=("7",), use_container_width=True)
+    k6.button("6", on_click=add_score, args=("6",), use_container_width=True)
+    k7.button("5", on_click=add_score, args=("5",), use_container_width=True)
 
-    def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
+    # Rząd 2
+    j1, j2, j3, j4, j5, j6 = st.columns(6)
+    j1.button("4", on_click=add_score, args=("4",), use_container_width=True)
+    j2.button("3", on_click=add_score, args=("3",), use_container_width=True)
+    j3.button("2", on_click=add_score, args=("2",), use_container_width=True)
+    j4.button("1", on_click=add_score, args=("1",), use_container_width=True)
+    j5.button("M", on_click=add_score, args=("M",), use_container_width=True)
+    j6.button("⌫", on_click=add_score, args=("⌫",), use_container_width=True)
+
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    # --------------------------------------------------
+
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
         if val in ["8", "7"]: return "background-color: #E53935; color: white;"
@@ -338,7 +353,6 @@ if st.session_state.started:
     </div>
     """, unsafe_allow_html=True)
     
-    # Wykres zmęczenia z naszego nowego pliku
     wykres = pro.wykres_zmeczenia(scores, lang)
     if wykres is not None:
         st.altair_chart(wykres, use_container_width=True)
