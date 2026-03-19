@@ -65,11 +65,11 @@ T = {
         "add_1": "➕ 1 strzała",
         "undo": "➖ Cofnij",
         "finish": "💾 Zakończ i Zapisz",
+        "cancel_btn": "❌ Anuluj (bez zapisu)",
         "pause_btn": "⏸️ Wstrzymaj (Menu)",
         "resume_btn": "▶️ Kontynuuj strzelanie",
         "discard_btn": "🗑️ Odrzuć sesję",
         "unfinished_msg": "⚠️ Masz wstrzymany trening w tle!",
-        "cancel_btn": "❌ Anuluj",
         "sum_10_x": "Suma 10+X:",
         "only_x": "Same X:",
         "round_fin": "✅ Runda 1 (Zakończona)",
@@ -133,11 +133,11 @@ T = {
         "add_1": "➕ 1 Pfeil",
         "undo": "➖ Zurück",
         "finish": "💾 Beenden & Speichern",
+        "cancel_btn": "❌ Abbrechen",
         "pause_btn": "⏸️ Pause (Menü)",
         "resume_btn": "▶️ Schießen fortsetzen",
         "discard_btn": "🗑️ Sitzung verwerfen",
         "unfinished_msg": "⚠️ Du hast ein pausiertes Training im Hintergrund!",
-        "cancel_btn": "❌ Abbrechen",
         "sum_10_x": "Summe 10+X:",
         "only_x": "Nur X:",
         "round_fin": "✅ Runde 1 (Beendet)",
@@ -178,7 +178,7 @@ if 'started' not in st.session_state:
     st.session_state.started = False
     st.session_state.scores = []
     st.session_state.extra_arrows = 0
-    st.session_state.event_info = {} # Inicjalizacja pustego info o treningu
+    st.session_state.event_info = {} 
 
 lang = st.session_state.lang
 
@@ -361,6 +361,7 @@ def usun_kalendarz_osobisty(event_id):
         return False
     except: return False
 
+
 # --- FUNKCJE POMOCNICZE LOGOWANIA ---
 if "del" in st.query_params:
     usun_kalendarz_osobisty(st.query_params["del"])
@@ -415,7 +416,6 @@ def zmiana_jezyka():
     st.session_state.lang = st.session_state.lang_sel
     save_user_settings()
 
-# --- SYSTEM PUNKTACJI W TLE ---
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
         with open(get_autosave_file(), "w") as f: 
@@ -427,7 +427,7 @@ def reset():
     st.session_state.started = False
     st.session_state.scores = []
     st.session_state.extra_arrows = 0
-    st.session_state.event_info = {} # Pamięta, żeby wyczyścić sesję w 100%
+    st.session_state.event_info = {}
     if 'radio_input' in st.session_state: del st.session_state['radio_input']
 
 def handle_radio_click():
@@ -446,12 +446,8 @@ def add_extra_arrows(val):
         st.session_state.extra_arrows += val
         save_backup()
 
-# Zmienna pomocnicza do sprawdzania wstrzymanej sesji
 has_paused_session = bool(st.session_state.get('event_info', {}))
 
-# =====================================================================
-# SPRAWDZENIE AUTO-LOGINU
-# =====================================================================
 if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
     wykonaj_logowanie(st.query_params["u"])
 
@@ -534,8 +530,6 @@ if st.session_state.started:
 
     def render_round_html(round_num, round_scores, cumulative_start):
         r_points = sum(get_num(s) for s in round_scores)
-        r_xs = round_scores.count("X")
-        r_10s = round_scores.count("10") + r_xs
         
         html = f"<div style='margin-bottom: 20px; font-family: Arial, sans-serif; background-color: #ffffff; color: #000000; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);'>"
         html += f"<div style='display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;'><b>Runde {round_num}</b><span style='font-weight: bold;'>{info['Dystans']}</span></div>"
@@ -581,8 +575,13 @@ if st.session_state.started:
     total_points = sum(get_num(s) for s in scores)
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
     total_arrows_shot = len(scores) + st.session_state.extra_arrows
+    
+    # NOWOŚĆ: Obliczenia do paska statystyk
     count_x = scores.count("X")
-    count_10_total = scores.count("10") + count_x 
+    count_10 = scores.count("10")
+    count_9 = scores.count("9")
+    count_m = scores.count("M")
+    count_10_total = count_10 + count_x 
     
     st.markdown(T[lang]["total_score"])
     col_s1, col_s2, col_s3 = st.columns(3)
@@ -590,7 +589,16 @@ if st.session_state.started:
     col_s2.metric(T[lang]["arrow_cnt"], f"{total_arrows_shot}")
     col_s3.metric(T[lang]["eff"], f"{percent:.1f}%")
     
-    st.write("")
+    # NOWOŚĆ: Pasek statystyk X, 10, 9, M
+    st.markdown(f"""
+    <div style='display: flex; justify-content: space-around; background-color: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-top: -15px; margin-bottom: 20px;'>
+        <div style='text-align: center;'><b style='color: #D4AC0D; font-size: 16px;'>X</b><br><span style='font-size: 18px; font-weight: bold;'>{count_x}</span></div>
+        <div style='text-align: center;'><b style='color: #D4AC0D; font-size: 16px;'>10</b><br><span style='font-size: 18px; font-weight: bold;'>{count_10}</span></div>
+        <div style='text-align: center;'><b style='color: #FBC02D; font-size: 16px;'>9</b><br><span style='font-size: 18px; font-weight: bold;'>{count_9}</span></div>
+        <div style='text-align: center;'><b style='color: gray; font-size: 16px;'>M</b><br><span style='font-size: 18px; font-weight: bold;'>{count_m}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown(f"<span style='font-size:14px; color:gray;'>{T[lang]['warmup']}</span>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     c1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
@@ -598,10 +606,8 @@ if st.session_state.started:
     c3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
 
     st.write("")
-    
-    # --- NOWE PRZYCISKI DO ZARZĄDZANIA SESJĄ NA DOLE ---
     if st.button(T[lang]["finish"], type="primary", use_container_width=True):
-        statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": scores.count("9"), "M": scores.count("M")}
+        statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
         if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
             kod_meczu = st.session_state.event_info.get("KodMeczu", "")
             if kod_meczu: zapisz_wynik_grupowy(st.session_state.zalogowany_zawodnik, kod_meczu, total_points, count_10_total, count_x)
@@ -612,7 +618,7 @@ if st.session_state.started:
         
     c_p, c_c = st.columns(2)
     if c_p.button(T[lang]["pause_btn"], use_container_width=True):
-        st.session_state.started = False # Wychodzimy z trybu skupienia, ale NIE usuwamy wyniku!
+        st.session_state.started = False 
         st.rerun()
     if c_c.button(T[lang]["cancel_btn"], use_container_width=True):
         reset()
@@ -935,30 +941,21 @@ else:
                 df_my_cal = df_my_cal.sort_values('Datetime')
                 
                 for _, row in df_my_cal.iterrows():
-                    adres_text = str(row.get("Adres", "")).strip()
-                    adres_html = ""
-                    if adres_text:
-                        encoded_adres = urllib.parse.quote(adres_text)
-                        maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='text-decoration: none; display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 8px; border-radius: 6px; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>📍</a>"
-                        
-                    del_link = f"?u={urllib.parse.quote(st.session_state.zalogowany_zawodnik)}&del={row['ID']}"
-                    trash_btn = f"<a href='{del_link}' target='_self' style='text-decoration: none; display: flex; justify-content: center; align-items: center; width: 44px; height: 44px; background-color: #fff; border: 1px solid #ffcdd2; color: #d32f2f; border-radius: 8px; font-size: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s;'>🗑️</a>"
-                    
-                    st.markdown(f"""
-                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 8px; border-left: 5px solid #1E88E5; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-                        <div style='display: flex; justify-content: space-between; align-items: flex-end;'>
-                            <div style='flex-grow: 1; padding-right: 10px;'>
-                                <b style='color: #1E88E5; font-size: 14px;'>🗓️ {row['Data']}</b><br>
-                                <span style='font-size: 15px; font-weight: 500; color: #333;'>{row['Nazwa']}</span>
-                                {adres_html}
-                            </div>
-                            <div style='display: flex; align-items: center;'>
-                                {trash_btn}
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    col_e1, col_e2 = st.columns([6, 1])
+                    with col_e1:
+                        adres_text = str(row.get("Adres", "")).strip()
+                        adres_html = ""
+                        if adres_text:
+                            encoded_adres = urllib.parse.quote(adres_text)
+                            maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
+                            adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
+                            
+                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>🗓️ {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
+                    with col_e2:
+                        st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+                        if st.button("🗑️", key=f"del_{row['ID']}", use_container_width=True):
+                            usun_kalendarz_osobisty(row['ID'])
+                            st.rerun()
 
         with tab_diary:
             df_hist = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
