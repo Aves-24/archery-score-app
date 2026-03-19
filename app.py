@@ -56,17 +56,17 @@ T = {
         "start_multi_btn": "⚔️ DOŁĄCZ I ROZPOCZNIJ",
         "lang_label": "Wybierz język / Sprache:",
         "dist": "Dystans",
-        "total_score": "Wynik Całkowity (Mecz)",
+        "total_score": "Wynik Całkowity",
         "pts": "Punkty",
-        "arrow_cnt": "Licznik strzał",
+        "arrow_cnt": "Licznik",
         "eff": "Skuteczność",
-        "warmup": "Strzały próbne / rozgrzewka:",
-        "add_6": "➕ 6 strzał",
-        "add_1": "➕ 1 strzała",
-        "undo": "➖ Cofnij",
-        "finish": "💾 Zakończ i Zapisz",
-        "cancel_btn": "❌ Anuluj (bez zapisu)",
-        "pause_btn": "⏸️ Wstrzymaj (Menu)",
+        "warmup": "Rozgrzewka / Próbne:",
+        "add_6": "➕ 6",
+        "add_1": "➕ 1",
+        "undo": "➖ 1",
+        "finish": "💾 Zapisz",
+        "cancel_btn": "❌ Usuń",
+        "pause_btn": "⏸️ Menu",
         "resume_btn": "▶️ Kontynuuj strzelanie",
         "discard_btn": "🗑️ Odrzuć sesję",
         "unfinished_msg": "⚠️ Masz wstrzymany trening w tle!",
@@ -124,17 +124,17 @@ T = {
         "start_multi_btn": "⚔️ BEITRETEN & STARTEN",
         "lang_label": "Sprache / Wybierz język:",
         "dist": "Distanz",
-        "total_score": "Gesamtergebnis (Match)",
+        "total_score": "Gesamtergebnis",
         "pts": "Punkte",
         "arrow_cnt": "Pfeile",
         "eff": "Quote",
-        "warmup": "Probepfeile / Aufwärmen:",
-        "add_6": "➕ 6 Pfeile",
-        "add_1": "➕ 1 Pfeil",
-        "undo": "➖ Zurück",
-        "finish": "💾 Beenden & Speichern",
-        "cancel_btn": "❌ Abbrechen (ohne Speichern)",
-        "pause_btn": "⏸️ Pause (Menü)",
+        "warmup": "Probepfeile:",
+        "add_6": "➕ 6",
+        "add_1": "➕ 1",
+        "undo": "➖ 1",
+        "finish": "💾 Speichern",
+        "cancel_btn": "❌ Löschen",
+        "pause_btn": "⏸️ Pause",
         "resume_btn": "▶️ Schießen fortsetzen",
         "discard_btn": "🗑️ Sitzung verwerfen",
         "unfinished_msg": "⚠️ Du hast ein pausiertes Training im Hintergrund!",
@@ -166,7 +166,7 @@ T = {
         "event_date": "Datum",
         "event_event_name": "Name des Ereignisses",
         "event_address": "Adresse (optional)",
-        "nav_btn": "Route starten"
+        "nav_btn": "Route"
     }
 }
 
@@ -583,39 +583,9 @@ if st.session_state.started:
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
 
-    st.write("")
-    st.markdown(f"<span style='font-size:14px; color:gray;'>{T[lang]['warmup']}</span>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    c1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
-    c2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,), use_container_width=True)
-    c3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
-
-    st.write("")
-    
-    # PRZYCISKI AKCJI (TERAZ NAD STATYSTYKAMI)
-    if st.button(T[lang]["finish"], type="primary", use_container_width=True):
-        statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
-        if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
-            kod_meczu = st.session_state.event_info.get("KodMeczu", "")
-            if kod_meczu: zapisz_wynik_grupowy(st.session_state.zalogowany_zawodnik, kod_meczu, total_points, count_10_total, count_x)
-            st.success("✅ Gespeichert!" if lang=="DE" else "✅ Zapisano!")
-            time.sleep(1.5)
-        reset()
-        st.rerun()
-        
-    c_p, c_c = st.columns(2)
-    if c_p.button(T[lang]["pause_btn"], use_container_width=True):
-        st.session_state.started = False 
-        st.rerun()
-    if c_c.button(T[lang]["cancel_btn"], use_container_width=True):
-        reset()
-        st.rerun()
-
-    st.write("")
-    
-    # KOMPAKTOWA KARTA STATYSTYK "GESAMTERGEBNIS" NA SAMYM DOLE
+    # --- KARTA STATYSTYK "GESAMTERGEBNIS" NAJPIERW (NAD PRZYCISKAMI) ---
     st.markdown(f"""
-    <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+    <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
         <p style='margin: 0 0 10px 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['total_score']}</p>
         <div style='display: flex; justify-content: space-between; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;'>
             <div><span style='font-size: 12px; color: gray;'>{T[lang]['pts']}</span><br><b style='font-size: 18px;'>{total_points}</b><span style='font-size:12px; color:gray;'>/{max_total_score}</span></div>
@@ -631,6 +601,34 @@ if st.session_state.started:
     </div>
     """, unsafe_allow_html=True)
 
+    # --- NOWY KOMPAKTOWY KOKPIT STEROWANIA ---
+    st.markdown(f"<div style='font-size:13px; color:gray; margin-bottom: -10px; margin-top: 5px;'>{T[lang]['warmup']}</div>", unsafe_allow_html=True)
+    cw1, cw2, cw3 = st.columns(3)
+    cw1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
+    cw2.button(T[lang]["add_1"], on_click=add_extra_arrows, args=(1,), use_container_width=True)
+    cw3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
+
+    st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+    
+    # Przycisk zapisz jest duży, pauza i usuń mniejsze obok
+    c_save, c_pause, c_cancel = st.columns([2, 1, 1])
+    if c_save.button(T[lang]["finish"], type="primary", use_container_width=True):
+        statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
+        if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
+            kod_meczu = st.session_state.event_info.get("KodMeczu", "")
+            if kod_meczu: zapisz_wynik_grupowy(st.session_state.zalogowany_zawodnik, kod_meczu, total_points, count_10_total, count_x)
+            st.success("✅ Gespeichert!" if lang=="DE" else "✅ Zapisano!")
+            time.sleep(1.5)
+        reset()
+        st.rerun()
+        
+    if c_pause.button(T[lang]["pause_btn"], use_container_width=True):
+        st.session_state.started = False 
+        st.rerun()
+        
+    if c_cancel.button(T[lang]["cancel_btn"], use_container_width=True):
+        reset()
+        st.rerun()
 
 # ---------------------------------------------------------------------
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
