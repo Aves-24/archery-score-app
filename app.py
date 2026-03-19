@@ -80,8 +80,7 @@ T = {
         "add_event": "➕ Dodaj wydarzenie",
         "event_date": "Data",
         "event_event_name": "Nazwa wydarzenia",
-        "event_address": "Adres (opcjonalnie)",
-        "nav_btn": "Nawiguj"
+        "event_address": "Adres (opcjonalnie)"
     },
     "DE": {
         "title": "🏹 Schießzettel",
@@ -144,8 +143,7 @@ T = {
         "add_event": "➕ Ereignis hinzufügen",
         "event_date": "Datum",
         "event_event_name": "Name des Ereignisses",
-        "event_address": "Adresse (optional)",
-        "nav_btn": "Route starten"
+        "event_address": "Adresse (optional)"
     }
 }
 
@@ -176,23 +174,6 @@ def load_user_settings(zawodnik):
                 st.session_state.aktywne_dystanse = data.get("aktywne_dystanse", ["18m", "30m", "70m"])
                 st.session_state.lang = data.get("lang", "DE") 
         except: pass
-
-def wyloguj():
-    st.session_state.zalogowany_zawodnik = None
-    st.session_state.started = False
-    st.session_state.scores = []
-    st.session_state.extra_arrows = 0
-    st.rerun()
-
-def zmiana_dystansow():
-    nowe_aktywne = [d for d in dystanse_lista if st.session_state.get(f"chk_{d}", False)]
-    if not nowe_aktywne: nowe_aktywne = ["18m"] 
-    st.session_state.aktywne_dystanse = nowe_aktywne
-    save_user_settings()
-
-def zmiana_jezyka():
-    st.session_state.lang = st.session_state.lang_sel
-    save_user_settings()
 
 # --- FUNKCJE GOOGLE SHEETS ---
 @st.cache_data(ttl=30)
@@ -306,7 +287,6 @@ def pobierz_ranking():
         return pd.DataFrame(gc.open(NAZWA_ARKUSZA).worksheet("Wyniki_Grupowe_V2").get_all_records())
     except: return pd.DataFrame()
 
-# --- PANCERNY KALENDARZ OSOBISTY Z GOOGLE MAPS ---
 @st.cache_data(ttl=5)
 def pobierz_kalendarz_osobisty(zawodnik):
     try:
@@ -357,6 +337,56 @@ def usun_kalendarz_osobisty(event_id):
         return False
     except: return False
 
+
+# --- FUNKCJE POMOCNICZE LOGOWANIA ---
+def wykonaj_logowanie(czysta_nazwa):
+    st.session_state.zalogowany_zawodnik = czysta_nazwa
+    st.query_params["u"] = czysta_nazwa # ZAPIS AUTO-LOGINU!
+    load_user_settings(czysta_nazwa)
+    
+    plik = get_autosave_file()
+    if os.path.exists(plik):
+        try:
+            with open(plik, "r") as f:
+                data = json.load(f)
+                if data.get("started"):
+                    st.session_state.started = True
+                    st.session_state.scores = data.get("scores", [])
+                    st.session_state.extra_arrows = data.get("extra_arrows", 0)
+                    st.session_state.event_info = data.get("event_info", {})
+                    st.session_state.max_arrows_per_round = data.get("max_arrows_per_round", 36)
+                    st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
+        except: pass
+    
+    zapisane_dane = pobierz_profil_sprzetu(czysta_nazwa)
+    if zapisane_dane:
+        for d in dystanse_lista:
+            st.session_state[f"aus_{d}"] = str(zapisane_dane.get(f"aus_{d}", ""))
+            st.session_state[f"hoehe_{d}"] = str(zapisane_dane.get(f"hoehe_{d}", ""))
+            st.session_state[f"seite_{d}"] = str(zapisane_dane.get(f"seite_{d}", ""))
+        for z, k in zip(["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"], 
+                        ["Zuggewicht", "Standhoehe", "Tiller", "Nockpunkt", "Pfeil_Modell", "Pfeil_Spine", "Pfeil_Laenge", "Pfeil_Spitze"]):
+            st.session_state[z] = str(zapisane_dane.get(k, ""))
+
+def wyloguj():
+    st.session_state.zalogowany_zawodnik = None
+    st.session_state.started = False
+    st.session_state.scores = []
+    st.session_state.extra_arrows = 0
+    if "u" in st.query_params:
+        del st.query_params["u"]
+    st.rerun()
+
+def zmiana_dystansow():
+    nowe_aktywne = [d for d in dystanse_lista if st.session_state.get(f"chk_{d}", False)]
+    if not nowe_aktywne: nowe_aktywne = ["18m"] 
+    st.session_state.aktywne_dystanse = nowe_aktywne
+    save_user_settings()
+
+def zmiana_jezyka():
+    st.session_state.lang = st.session_state.lang_sel
+    save_user_settings()
+
 # --- SYSTEM PUNKTACJI W TLE ---
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
@@ -396,6 +426,12 @@ for z in ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pf
     if z not in st.session_state: st.session_state[z] = ""
 
 # =====================================================================
+# SPRAWDZENIE AUTO-LOGINU
+# =====================================================================
+if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
+    wykonaj_logowanie(st.query_params["u"])
+
+# =====================================================================
 # EKRAN LOGOWANIA
 # =====================================================================
 if not st.session_state.zalogowany_zawodnik:
@@ -410,32 +446,7 @@ if not st.session_state.zalogowany_zawodnik:
         if st.button("Schießstand betreten", type="primary", use_container_width=True):
             czysta_nazwa = podana_nazwa.strip()
             if czysta_nazwa in konta and (konta[czysta_nazwa] == podany_pin or konta[czysta_nazwa].zfill(len(podany_pin)) == podany_pin):
-                st.session_state.zalogowany_zawodnik = czysta_nazwa
-                load_user_settings(czysta_nazwa)
-                
-                plik = get_autosave_file()
-                if os.path.exists(plik):
-                    try:
-                        with open(plik, "r") as f:
-                            data = json.load(f)
-                            if data.get("started"):
-                                st.session_state.started = True
-                                st.session_state.scores = data.get("scores", [])
-                                st.session_state.extra_arrows = data.get("extra_arrows", 0)
-                                st.session_state.event_info = data.get("event_info", {})
-                                st.session_state.max_arrows_per_round = data.get("max_arrows_per_round", 36)
-                                st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
-                    except: pass
-                
-                zapisane_dane = pobierz_profil_sprzetu(czysta_nazwa)
-                if zapisane_dane:
-                    for d in dystanse_lista:
-                        st.session_state[f"aus_{d}"] = str(zapisane_dane.get(f"aus_{d}", ""))
-                        st.session_state[f"hoehe_{d}"] = str(zapisane_dane.get(f"hoehe_{d}", ""))
-                        st.session_state[f"seite_{d}"] = str(zapisane_dane.get(f"seite_{d}", ""))
-                    for z, k in zip(["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"], 
-                                    ["Zuggewicht", "Standhoehe", "Tiller", "Nockpunkt", "Pfeil_Modell", "Pfeil_Spine", "Pfeil_Laenge", "Pfeil_Spitze"]):
-                        st.session_state[z] = str(zapisane_dane.get(k, ""))
+                wykonaj_logowanie(czysta_nazwa)
                 st.rerun()
             else: st.error("❌ Falscher Name oder PIN!")
                     
@@ -616,7 +627,7 @@ else:
             st.markdown(f"""
             <div style='background-color: #f9f9f9; padding: 12px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 20px;'>
                 <p style='margin: 0; font-size: 14px; color: gray;'>{T[lang]['home_last_training']}</p>
-                <p style='margin: 5px 0; font-size: 16px; font-weight: bold;'>📅 {ostatnia_data} &nbsp;|&nbsp; 🎯 {ostatni_dystans} &nbsp;|&nbsp; 🏅 {ostatnie_punkty} pts</p>
+                <p style='margin: 5px 0; font-size: 16px; font-weight: bold;'>📅 {ostatnia_data}  |  🎯 {ostatni_dystans}  |  🏅 {ostatnie_punkty} pts</p>
                 <hr style='margin: 8px 0; border: none; border-top: 1px solid #ddd;'>
                 <p style='margin: 0; font-size: 14px; color: #D4AC0D;'>🏆 {T[lang]['home_record']} <b>{ostatni_dystans}</b>: <b>{rekord} pts</b></p>
             </div>
@@ -642,10 +653,10 @@ else:
                     if adres_text:
                         encoded_adres = urllib.parse.quote(adres_text)
                         maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <br><a href='{maps_url}' target='_blank' style='display: inline-block; margin-top: 6px; background-color: #1E88E5; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍 {T[lang]['nav_btn']}</a>"
+                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #1E88E5; color: white; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
                     
                     st.markdown(f"""
-                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
                         <b style='font-size: 14px; color: #333;'>📅 {row['Data']}</b> | <span style='font-size: 15px; color: #000;'>{row['Nazwa']}</span>{adres_html}
                     </div>
                     """, unsafe_allow_html=True)
@@ -754,7 +765,7 @@ else:
                             st.markdown(f"""
                             <div style='background-color: {c_bg}; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid {c_b};'>
                                 <h3 style='margin: 0; color: #333;'>{m} {row['Zawodnik']}</h3>
-                                <p style='margin: 5px 0 0 0; font-size: 18px;'><b>{row['Punkty']}</b> Punkte &nbsp; <span style='font-size: 14px; color: gray;'>(10+X: {row['10_i_X']} | X: {row['Same X']})</span></p>
+                                <p style='margin: 5px 0 0 0; font-size: 18px;'><b>{row['Punkty']}</b> Punkte   <span style='font-size: 14px; color: gray;'>(10+X: {row['10_i_X']} | X: {row['Same X']})</span></p>
                                 <p style='margin: 0; font-size: 10px; color: gray;'>Beendet: {row['Datetime'].strftime('%H:%M Uhr')}</p>
                             </div>
                             """, unsafe_allow_html=True)
@@ -881,9 +892,9 @@ else:
                         if adres_text:
                             encoded_adres = urllib.parse.quote(adres_text)
                             maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                            adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <br><a href='{maps_url}' target='_blank' style='display: inline-block; margin-top: 6px; background-color: #1E88E5; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍 {T[lang]['nav_btn']}</a>"
+                            adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #1E88E5; color: white; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
                             
-                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
                     with col_e2:
                         st.write("") 
                         if st.button("🗑️", key=f"del_{row['ID']}"):
