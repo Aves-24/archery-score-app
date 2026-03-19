@@ -15,52 +15,16 @@ import pro_features as pro
 
 st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_sidebar_state="collapsed")
 
-# --- UKRYCIE INTERFEJSU STREAMLIT I PANCERNA SIATKA "GRID" DLA TELEFONÓW ---
+# --- UKRYCIE INTERFEJSU STREAMLIT (CZYSTY KOD, BEZ ZEPSUTEGO CSS) ---
 st.markdown("""
     <style>
         header {visibility: hidden;}
         footer {visibility: hidden;}
-        
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
-            max-width: 100% !important;
-            overflow-x: hidden !important; 
         }
         .stDeployButton {display:none;}
-        
-        @media screen and (max-width: 768px) {
-            div[data-testid="stHorizontalBlock"] {
-                display: flex !important;
-                flex-direction: row !important;
-                flex-wrap: nowrap !important;
-                width: 100% !important;
-                gap: 4px !important; 
-            }
-            div[data-testid="column"] {
-                width: 0 !important; 
-                min-width: 0 !important;
-                flex: 1 1 0% !important; 
-                padding: 0 !important;
-            }
-            div[data-testid="stButton"] { width: 100% !important; }
-            div[data-testid="stButton"] > button {
-                width: 100% !important;
-                padding: 0 !important;
-                min-height: 48px !important;
-                display: flex !important;
-                justify-content: center !important;
-                align-items: center !important;
-                font-weight: bold !important;
-            }
-            div[data-testid="stButton"] > button p {
-                font-size: 15px !important;
-                margin: 0 !important;
-                white-space: nowrap !important; 
-                overflow: hidden !important;   
-                text-overflow: clip !important;
-            }
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -73,6 +37,8 @@ if 'started' not in st.session_state:
     st.session_state.scores = []
     st.session_state.extra_arrows = 0
     st.session_state.event_info = {} 
+    st.session_state.pogoda_txt = ""
+    st.session_state.pogoda_r2_pobrana = False
 
 lang = st.session_state.lang
 
@@ -111,6 +77,7 @@ def wykonaj_logowanie(czysta_nazwa):
                     st.session_state.event_info = data.get("event_info", {})
                     st.session_state.max_arrows_per_round = data.get("max_arrows_per_round", 36)
                     st.session_state.max_total_arrows = data.get("max_total_arrows", 72)
+                    st.session_state.pogoda_txt = pro.pobierz_pogode() # Pobiera pogodę przy przywróceniu sesji
         except: pass
     
     zapisane_dane = db.pobierz_profil_sprzetu(czysta_nazwa)
@@ -154,14 +121,20 @@ def reset():
     st.session_state.scores = []
     st.session_state.extra_arrows = 0
     st.session_state.event_info = {}
+    st.session_state.pogoda_txt = ""
+    st.session_state.pogoda_r2_pobrana = False
+    if 'radio_input' in st.session_state: del st.session_state['radio_input']
 
-# SZYBKIE DODAWANIE Z PRZYCISKÓW
-def add_score(val):
-    if val == "⌫" and len(st.session_state.scores) > 0:
-        st.session_state.scores.pop()
-    elif val != "⌫" and len(st.session_state.scores) < st.session_state.max_total_arrows:
-        st.session_state.scores.append(val)
-    save_backup()
+def handle_radio_click():
+    if 'radio_input' in st.session_state:
+        val = st.session_state.radio_input
+        if val == "⌫" and len(st.session_state.scores) > 0: 
+            st.session_state.scores.pop()
+            save_backup()
+        elif val is not None and val != "⌫" and len(st.session_state.scores) < st.session_state.max_total_arrows:
+            st.session_state.scores.append(val)
+            save_backup()
+        st.session_state.radio_input = None 
 
 def add_extra_arrows(val):
     if st.session_state.extra_arrows + val >= 0:
@@ -178,15 +151,6 @@ if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
     wykonaj_logowanie(st.query_params["u"])
 
 has_paused_session = bool(st.session_state.get('event_info', {}))
-
-# --- INICJALIZACJA ZMIENNYCH SPRZĘTU (ZABEZPIECZENIE) ---
-for d in dystanse_lista:
-    if f"aus_{d}" not in st.session_state: st.session_state[f"aus_{d}"] = ""
-    if f"hoehe_{d}" not in st.session_state: st.session_state[f"hoehe_{d}"] = ""
-    if f"seite_{d}" not in st.session_state: st.session_state[f"seite_{d}"] = ""
-for z in ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]:
-    if z not in st.session_state: st.session_state[z] = ""
-
 
 # =====================================================================
 # EKRAN LOGOWANIA
@@ -230,47 +194,42 @@ st.markdown(f"<div style='text-align: right; color: gray; font-size: 12px; margi
 # TRYB SKUPIENIA (TRWA STRZELANIE)
 # ---------------------------------------------------------------------
 if st.session_state.started:
+    st.markdown("""
+        <style>
+            /* Styl radia - odzyskanie pięknego paska punktacji! */
+            div[data-testid="stRadio"] { margin-bottom: -20px !important; }
+            div[role="radiogroup"] { gap: 4px !important; padding: 0 !important; justify-content: center !important; }
+            div[role="radiogroup"] label p { font-size: 18px !important; font-weight: 900 !important; padding: 0 !important; }
+            div[role="radiogroup"] label:nth-child(1) p, div[role="radiogroup"] label:nth-child(2) p, div[role="radiogroup"] label:nth-child(3) p { color: #D4AC0D !important; }
+            div[role="radiogroup"] label:nth-child(4) p, div[role="radiogroup"] label:nth-child(5) p { color: #E53935 !important; }
+            div[role="radiogroup"] label:nth-child(6) p, div[role="radiogroup"] label:nth-child(7) p { color: #1E88E5 !important; }
+            div[role="radiogroup"] label:nth-child(8) p, div[role="radiogroup"] label:nth-child(9) p { color: #757575 !important; }
+        </style>
+    """, unsafe_allow_html=True)
 
     info = st.session_state.event_info
     scores = st.session_state.scores
     arrows_per_end = info['StrzalWSerii']
     max_total_score = st.session_state.max_total_arrows * 10
     
+    # MAGICZNA AKTUALIZACJA POGODY NA POCZĄTKU 2 RUNDY (bez mulenia po każdej strzale)
+    if len(scores) >= st.session_state.max_arrows_per_round and not st.session_state.pogoda_r2_pobrana:
+        st.session_state.pogoda_txt = pro.pobierz_pogode()
+        st.session_state.pogoda_r2_pobrana = True
+    
     def get_num(s): return 10 if s in ["X", "10"] else (0 if s == "M" else int(s))
     
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
     if info.get('KodMeczu', ""): tytul += f" [⚔️ {info['KodMeczu']}]"
     
-    pogoda_txt = pro.pobierz_pogode()
-    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Dystans']} <br> {pogoda_txt}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align: center; color: gray; font-size: 14px; margin-bottom: 5px;'>{tytul} | {info['Dystans']} <br> {st.session_state.pogoda_txt}</div>", unsafe_allow_html=True)
 
     with st.expander("⏱️ Timer / Stoppuhr"):
         pro.render_stopwatch(lang)
 
-    # --- NOWA, PROFESJONALNA KLAWIATURA NUMERYCZNA ---
-    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-    
-    # Rząd 1
-    k1, k2, k3, k4, k5, k6, k7 = st.columns(7)
-    k1.button("X", on_click=add_score, args=("X",), use_container_width=True)
-    k2.button("10", on_click=add_score, args=("10",), use_container_width=True)
-    k3.button("9", on_click=add_score, args=("9",), use_container_width=True)
-    k4.button("8", on_click=add_score, args=("8",), use_container_width=True)
-    k5.button("7", on_click=add_score, args=("7",), use_container_width=True)
-    k6.button("6", on_click=add_score, args=("6",), use_container_width=True)
-    k7.button("5", on_click=add_score, args=("5",), use_container_width=True)
-
-    # Rząd 2
-    j1, j2, j3, j4, j5, j6 = st.columns(6)
-    j1.button("4", on_click=add_score, args=("4",), use_container_width=True)
-    j2.button("3", on_click=add_score, args=("3",), use_container_width=True)
-    j3.button("2", on_click=add_score, args=("2",), use_container_width=True)
-    j4.button("1", on_click=add_score, args=("1",), use_container_width=True)
-    j5.button("M", on_click=add_score, args=("M",), use_container_width=True)
-    j6.button("⌫", on_click=add_score, args=("⌫",), use_container_width=True)
-
-    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-    # --------------------------------------------------
+    # --- NASZ UKOCHANY, STABILNY RADIO BUTTON ---
+    st.radio("Punkty", options=["X", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "M", "⌫"], horizontal=True, index=None, key="radio_input", on_change=handle_radio_click, label_visibility="collapsed")
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
     def get_color_style(val):
         if val in ["X", "10", "9"]: return "background-color: #FCE205; color: black;"
@@ -366,7 +325,7 @@ if st.session_state.started:
 
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     
-    # --- KOKPIT AKCJI ---
+    # --- KOKPIT AKCJI (NATYWNY UKŁAD STREAMLIT - ZERO HACKÓW) ---
     c_save, c_pause, c_cancel = st.columns(3)
     if c_save.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
@@ -504,6 +463,8 @@ else:
                     "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans, "KodMeczu": "",
                     "CelownikSkala": " | ".join(czesci) if czesci else "-"
                 }
+                st.session_state.pogoda_txt = pro.pobierz_pogode() # Pobiera pogodę TYLKO w momencie startu
+                st.session_state.pogoda_r2_pobrana = False
                 st.session_state.max_arrows_per_round = 36
                 st.session_state.max_total_arrows = 72
                 st.session_state.started = True
@@ -544,6 +505,8 @@ else:
                         "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans_multi, "KodMeczu": kod_meczu.strip(),
                         "CelownikSkala": " | ".join(czesci) if czesci else "-"
                     }
+                    st.session_state.pogoda_txt = pro.pobierz_pogode() # POBRANIE POGODY TYLKO RAZ
+                    st.session_state.pogoda_r2_pobrana = False
                     st.session_state.max_arrows_per_round = 36
                     st.session_state.max_total_arrows = 72
                     st.session_state.started = True
