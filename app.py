@@ -65,7 +65,11 @@ T = {
         "add_1": "➕ 1 strzała",
         "undo": "➖ Cofnij",
         "finish": "💾 Zakończ i Zapisz",
-        "cancel_btn": "❌ Anuluj (bez zapisu)",
+        "pause_btn": "⏸️ Wstrzymaj (Menu)",
+        "resume_btn": "▶️ Kontynuuj strzelanie",
+        "discard_btn": "🗑️ Odrzuć sesję",
+        "unfinished_msg": "⚠️ Masz wstrzymany trening w tle!",
+        "cancel_btn": "❌ Anuluj",
         "sum_10_x": "Suma 10+X:",
         "only_x": "Same X:",
         "round_fin": "✅ Runda 1 (Zakończona)",
@@ -93,7 +97,8 @@ T = {
         "add_event": "➕ Dodaj wydarzenie",
         "event_date": "Data",
         "event_event_name": "Nazwa wydarzenia",
-        "event_address": "Adres (opcjonalnie)"
+        "event_address": "Adres (opcjonalnie)",
+        "nav_btn": "Nawiguj"
     },
     "DE": {
         "title": "🏹 Schießzettel",
@@ -128,7 +133,11 @@ T = {
         "add_1": "➕ 1 Pfeil",
         "undo": "➖ Zurück",
         "finish": "💾 Beenden & Speichern",
-        "cancel_btn": "❌ Abbrechen (ohne Speichern)",
+        "pause_btn": "⏸️ Pause (Menü)",
+        "resume_btn": "▶️ Schießen fortsetzen",
+        "discard_btn": "🗑️ Sitzung verwerfen",
+        "unfinished_msg": "⚠️ Du hast ein pausiertes Training im Hintergrund!",
+        "cancel_btn": "❌ Abbrechen",
         "sum_10_x": "Summe 10+X:",
         "only_x": "Nur X:",
         "round_fin": "✅ Runde 1 (Beendet)",
@@ -156,7 +165,8 @@ T = {
         "add_event": "➕ Ereignis hinzufügen",
         "event_date": "Datum",
         "event_event_name": "Name des Ereignisses",
-        "event_address": "Adresse (optional)"
+        "event_address": "Adresse (optional)",
+        "nav_btn": "Route starten"
     }
 }
 
@@ -168,6 +178,7 @@ if 'started' not in st.session_state:
     st.session_state.started = False
     st.session_state.scores = []
     st.session_state.extra_arrows = 0
+    st.session_state.event_info = {} # Inicjalizacja pustego info o treningu
 
 lang = st.session_state.lang
 
@@ -350,13 +361,10 @@ def usun_kalendarz_osobisty(event_id):
         return False
     except: return False
 
-
-# =====================================================================
-# SPRAWDZENIE AUTO-LOGINU I USUWANIA W TLE
-# =====================================================================
+# --- FUNKCJE POMOCNICZE LOGOWANIA ---
 if "del" in st.query_params:
     usun_kalendarz_osobisty(st.query_params["del"])
-    del st.query_params["del"] # Czyścimy link z komendy usunięcia
+    del st.query_params["del"] 
     st.rerun()
 
 def wykonaj_logowanie(czysta_nazwa):
@@ -407,6 +415,7 @@ def zmiana_jezyka():
     st.session_state.lang = st.session_state.lang_sel
     save_user_settings()
 
+# --- SYSTEM PUNKTACJI W TLE ---
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
         with open(get_autosave_file(), "w") as f: 
@@ -418,6 +427,7 @@ def reset():
     st.session_state.started = False
     st.session_state.scores = []
     st.session_state.extra_arrows = 0
+    st.session_state.event_info = {} # Pamięta, żeby wyczyścić sesję w 100%
     if 'radio_input' in st.session_state: del st.session_state['radio_input']
 
 def handle_radio_click():
@@ -436,6 +446,12 @@ def add_extra_arrows(val):
         st.session_state.extra_arrows += val
         save_backup()
 
+# Zmienna pomocnicza do sprawdzania wstrzymanej sesji
+has_paused_session = bool(st.session_state.get('event_info', {}))
+
+# =====================================================================
+# SPRAWDZENIE AUTO-LOGINU
+# =====================================================================
 if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
     wykonaj_logowanie(st.query_params["u"])
 
@@ -582,8 +598,9 @@ if st.session_state.started:
     c3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
 
     st.write("")
-    col_end1, col_end2 = st.columns([2, 1])
-    if col_end1.button(T[lang]["finish"], type="primary", use_container_width=True):
+    
+    # --- NOWE PRZYCISKI DO ZARZĄDZANIA SESJĄ NA DOLE ---
+    if st.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": scores.count("9"), "M": scores.count("M")}
         if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
             kod_meczu = st.session_state.event_info.get("KodMeczu", "")
@@ -593,7 +610,11 @@ if st.session_state.started:
         reset()
         st.rerun()
         
-    if col_end2.button(T[lang]["cancel_btn"], use_container_width=True):
+    c_p, c_c = st.columns(2)
+    if c_p.button(T[lang]["pause_btn"], use_container_width=True):
+        st.session_state.started = False # Wychodzimy z trybu skupienia, ale NIE usuwamy wyniku!
+        st.rerun()
+    if c_c.button(T[lang]["cancel_btn"], use_container_width=True):
         reset()
         st.rerun()
 
@@ -670,59 +691,49 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
 
+        st.write("")
+        btn_wa_txt = "🟢 App über WhatsApp teilen" if lang == "DE" else "🟢 Udostępnij aplikację przez WhatsApp"
+        st.markdown(f"""
+            <div style='text-align: center; margin-top: 10px;'>
+                <a href="whatsapp://send?text=Hallo! 👋 Schau dir unsere Vereins-App an: {ADRES_APLIKACJI}" target="_blank" style="text-decoration: none; background-color: #25D366; color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px;">
+                    {btn_wa_txt}
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
+
     # --- ZAKŁADKA: SCHIESSZETTEL ---
     elif wybrana_zakladka == T[lang]["menu_score"]:
         st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>🎯 {T[lang]['menu_score']} Setup</p></div>", unsafe_allow_html=True)
         
-        event_type = st.radio("typ_wydarzenia", [T[lang]["training"], T[lang]["tournament"]], horizontal=True, label_visibility="collapsed")
-        event_name = "-"
-        if event_type == T[lang]["tournament"]:
-            event_name = st.text_input(T[lang]["event_name"], placeholder=T[lang]["event_name_ph"])
-            
-        st.write("") 
-        st.write(T[lang]["choose_dist"])
-        dystans = st.radio("Dystans", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
+        if has_paused_session:
+            st.warning(T[lang]["unfinished_msg"])
+            c_r, c_d = st.columns(2)
+            if c_r.button(T[lang]["resume_btn"], type="primary", use_container_width=True):
+                st.session_state.started = True
+                st.rerun()
+            if c_d.button(T[lang]["discard_btn"], use_container_width=True):
+                reset()
+                st.rerun()
+        else:
+            event_type = st.radio("typ_wydarzenia", [T[lang]["training"], T[lang]["tournament"]], horizontal=True, label_visibility="collapsed")
+            event_name = "-"
+            if event_type == T[lang]["tournament"]:
+                event_name = st.text_input(T[lang]["event_name"], placeholder=T[lang]["event_name_ph"])
+                
+            st.write("") 
+            st.write(T[lang]["choose_dist"])
+            dystans = st.radio("Dystans", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
 
-        st.write("")
-        if st.button(T[lang]["start_btn"], type="primary", use_container_width=True):
-            czesci = []
-            if st.session_state[f'aus_{dystans}']: czesci.append(f"A:{st.session_state[f'aus_{dystans}']}")
-            if st.session_state[f'hoehe_{dystans}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans}']}")
-            if st.session_state[f'seite_{dystans}']: czesci.append(f"S:{st.session_state[f'seite_{dystans}']}")
-            
-            st.session_state.event_info = {
-                "Data": date.today().strftime("%d.%m.%Y"), "Typ": event_type, "Nazwa": event_name if event_name.strip() else "-",
-                "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans, "KodMeczu": "",
-                "CelownikSkala": " | ".join(czesci) if czesci else "-"
-            }
-            st.session_state.max_arrows_per_round = 36
-            st.session_state.max_total_arrows = 72
-            st.session_state.started = True
-            save_backup()
-            st.rerun()
-
-    # --- ZAKŁADKA: MINI-TURNIER ---
-    elif wybrana_zakladka == T[lang]["menu_multi"]:
-        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>⚔️ {T[lang]['menu_multi']} Setup</p></div>", unsafe_allow_html=True)
-        
-        st.write(f"**{T[lang]['room_code']}**")
-        kod_meczu = st.text_input("Kod Pokoju", max_chars=2, placeholder="np. 07", label_visibility="collapsed")
-        
-        st.write(T[lang]["choose_dist"])
-        dystans_multi = st.radio("Dystans Multi", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
-
-        st.write("")
-        if st.button(T[lang]["start_multi_btn"], type="primary", use_container_width=True):
-            if not kod_meczu.strip(): st.error("Bitte gib einen Code ein!" if lang == "DE" else "Podaj kod!")
-            else:
+            st.write("")
+            if st.button(T[lang]["start_btn"], type="primary", use_container_width=True):
                 czesci = []
-                if st.session_state[f'aus_{dystans_multi}']: czesci.append(f"A:{st.session_state[f'aus_{dystans_multi}']}")
-                if st.session_state[f'hoehe_{dystans_multi}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans_multi}']}")
-                if st.session_state[f'seite_{dystans_multi}']: czesci.append(f"S:{st.session_state[f'seite_{dystans_multi}']}")
+                if st.session_state[f'aus_{dystans}']: czesci.append(f"A:{st.session_state[f'aus_{dystans}']}")
+                if st.session_state[f'hoehe_{dystans}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans}']}")
+                if st.session_state[f'seite_{dystans}']: czesci.append(f"S:{st.session_state[f'seite_{dystans}']}")
                 
                 st.session_state.event_info = {
-                    "Data": date.today().strftime("%d.%m.%Y"), "Typ": T[lang]["training"], "Nazwa": "Mini-Turnier",
-                    "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans_multi, "KodMeczu": kod_meczu.strip(),
+                    "Data": date.today().strftime("%d.%m.%Y"), "Typ": event_type, "Nazwa": event_name if event_name.strip() else "-",
+                    "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans, "KodMeczu": "",
                     "CelownikSkala": " | ".join(czesci) if czesci else "-"
                 }
                 st.session_state.max_arrows_per_round = 36
@@ -730,6 +741,46 @@ else:
                 st.session_state.started = True
                 save_backup()
                 st.rerun()
+
+    # --- ZAKŁADKA: MINI-TURNIER ---
+    elif wybrana_zakladka == T[lang]["menu_multi"]:
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>⚔️ {T[lang]['menu_multi']} Setup</p></div>", unsafe_allow_html=True)
+        
+        if has_paused_session:
+            st.warning(T[lang]["unfinished_msg"])
+            c_rm, c_dm = st.columns(2)
+            if c_rm.button(T[lang]["resume_btn"], type="primary", use_container_width=True, key="res_multi"):
+                st.session_state.started = True
+                st.rerun()
+            if c_dm.button(T[lang]["discard_btn"], use_container_width=True, key="disc_multi"):
+                reset()
+                st.rerun()
+        else:
+            st.write(f"**{T[lang]['room_code']}**")
+            kod_meczu = st.text_input("Kod Pokoju", max_chars=2, placeholder="np. 07", label_visibility="collapsed")
+            
+            st.write(T[lang]["choose_dist"])
+            dystans_multi = st.radio("Dystans Multi", st.session_state.aktywne_dystanse, horizontal=True, label_visibility="collapsed")
+
+            st.write("")
+            if st.button(T[lang]["start_multi_btn"], type="primary", use_container_width=True):
+                if not kod_meczu.strip(): st.error("Bitte gib einen Code ein!" if lang == "DE" else "Podaj kod!")
+                else:
+                    czesci = []
+                    if st.session_state[f'aus_{dystans_multi}']: czesci.append(f"A:{st.session_state[f'aus_{dystans_multi}']}")
+                    if st.session_state[f'hoehe_{dystans_multi}']: czesci.append(f"H:{st.session_state[f'hoehe_{dystans_multi}']}")
+                    if st.session_state[f'seite_{dystans_multi}']: czesci.append(f"S:{st.session_state[f'seite_{dystans_multi}']}")
+                    
+                    st.session_state.event_info = {
+                        "Data": date.today().strftime("%d.%m.%Y"), "Typ": T[lang]["training"], "Nazwa": "Mini-Turnier",
+                        "StrzalWSerii": 6, "SeriiWRundzie": 6, "Dystans": dystans_multi, "KodMeczu": kod_meczu.strip(),
+                        "CelownikSkala": " | ".join(czesci) if czesci else "-"
+                    }
+                    st.session_state.max_arrows_per_round = 36
+                    st.session_state.max_total_arrows = 72
+                    st.session_state.started = True
+                    save_backup()
+                    st.rerun()
                 
         st.write("")
         st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>{T[lang]['rank_title']}</p></div>", unsafe_allow_html=True)
@@ -889,10 +940,10 @@ else:
                     if adres_text:
                         encoded_adres = urllib.parse.quote(adres_text)
                         maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                        adres_html = f"<div style='margin-top: 6px;'><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='text-decoration: none; display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 8px; border-radius: 6px; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>📍</a></div>"
+                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='text-decoration: none; display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 8px; border-radius: 6px; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>📍</a>"
                         
                     del_link = f"?u={urllib.parse.quote(st.session_state.zalogowany_zawodnik)}&del={row['ID']}"
-                    trash_btn = f"<a href='{del_link}' target='_self' style='text-decoration: none; display: inline-block; background-color: #fff; border: 1px solid #ffcdd2; color: #d32f2f; padding: 6px 10px; border-radius: 6px; font-size: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s;'>🗑️</a>"
+                    trash_btn = f"<a href='{del_link}' target='_self' style='text-decoration: none; display: flex; justify-content: center; align-items: center; width: 44px; height: 44px; background-color: #fff; border: 1px solid #ffcdd2; color: #d32f2f; border-radius: 8px; font-size: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s;'>🗑️</a>"
                     
                     st.markdown(f"""
                     <div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 8px; border-left: 5px solid #1E88E5; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
@@ -902,7 +953,7 @@ else:
                                 <span style='font-size: 15px; font-weight: 500; color: #333;'>{row['Nazwa']}</span>
                                 {adres_html}
                             </div>
-                            <div>
+                            <div style='display: flex; align-items: center;'>
                                 {trash_btn}
                             </div>
                         </div>
