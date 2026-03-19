@@ -56,7 +56,7 @@ T = {
         "start_multi_btn": "⚔️ DOŁĄCZ I ROZPOCZNIJ",
         "lang_label": "Wybierz język / Sprache:",
         "dist": "Dystans",
-        "total_score": "### 📊 Wynik Całkowity (Mecz)",
+        "total_score": "Wynik Całkowity (Mecz)",
         "pts": "Punkty",
         "arrow_cnt": "Licznik strzał",
         "eff": "Skuteczność",
@@ -124,7 +124,7 @@ T = {
         "start_multi_btn": "⚔️ BEITRETEN & STARTEN",
         "lang_label": "Sprache / Wybierz język:",
         "dist": "Distanz",
-        "total_score": "### 📊 Gesamtergebnis (Match)",
+        "total_score": "Gesamtergebnis (Match)",
         "pts": "Punkte",
         "arrow_cnt": "Pfeile",
         "eff": "Quote",
@@ -133,7 +133,7 @@ T = {
         "add_1": "➕ 1 Pfeil",
         "undo": "➖ Zurück",
         "finish": "💾 Beenden & Speichern",
-        "cancel_btn": "❌ Abbrechen",
+        "cancel_btn": "❌ Abbrechen (ohne Speichern)",
         "pause_btn": "⏸️ Pause (Menü)",
         "resume_btn": "▶️ Schießen fortsetzen",
         "discard_btn": "🗑️ Sitzung verwerfen",
@@ -416,6 +416,7 @@ def zmiana_jezyka():
     st.session_state.lang = st.session_state.lang_sel
     save_user_settings()
 
+# --- SYSTEM PUNKTACJI W TLE ---
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
         with open(get_autosave_file(), "w") as f: 
@@ -572,33 +573,17 @@ if st.session_state.started:
         html2, _ = render_round_html(2, round2_scores, cumul1)
         st.markdown(html2, unsafe_allow_html=True)
 
+    # OBLICZENIA DO PODSUMOWANIA
     total_points = sum(get_num(s) for s in scores)
     percent = (total_points / (len(scores) * 10) * 100) if len(scores) > 0 else 0
     total_arrows_shot = len(scores) + st.session_state.extra_arrows
-    
-    # NOWOŚĆ: Obliczenia do paska statystyk
     count_x = scores.count("X")
     count_10 = scores.count("10")
     count_9 = scores.count("9")
     count_m = scores.count("M")
     count_10_total = count_10 + count_x 
-    
-    st.markdown(T[lang]["total_score"])
-    col_s1, col_s2, col_s3 = st.columns(3)
-    col_s1.metric(T[lang]["pts"], f"{total_points} / {max_total_score}")
-    col_s2.metric(T[lang]["arrow_cnt"], f"{total_arrows_shot}")
-    col_s3.metric(T[lang]["eff"], f"{percent:.1f}%")
-    
-    # NOWOŚĆ: Pasek statystyk X, 10, 9, M
-    st.markdown(f"""
-    <div style='display: flex; justify-content: space-around; background-color: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-top: -15px; margin-bottom: 20px;'>
-        <div style='text-align: center;'><b style='color: #D4AC0D; font-size: 16px;'>X</b><br><span style='font-size: 18px; font-weight: bold;'>{count_x}</span></div>
-        <div style='text-align: center;'><b style='color: #D4AC0D; font-size: 16px;'>10</b><br><span style='font-size: 18px; font-weight: bold;'>{count_10}</span></div>
-        <div style='text-align: center;'><b style='color: #FBC02D; font-size: 16px;'>9</b><br><span style='font-size: 18px; font-weight: bold;'>{count_9}</span></div>
-        <div style='text-align: center;'><b style='color: gray; font-size: 16px;'>M</b><br><span style='font-size: 18px; font-weight: bold;'>{count_m}</span></div>
-    </div>
-    """, unsafe_allow_html=True)
-    
+
+    st.write("")
     st.markdown(f"<span style='font-size:14px; color:gray;'>{T[lang]['warmup']}</span>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     c1.button(T[lang]["add_6"], on_click=add_extra_arrows, args=(6,), use_container_width=True)
@@ -606,6 +591,8 @@ if st.session_state.started:
     c3.button(T[lang]["undo"], on_click=add_extra_arrows, args=(-1,), use_container_width=True)
 
     st.write("")
+    
+    # PRZYCISKI AKCJI (TERAZ NAD STATYSTYKAMI)
     if st.button(T[lang]["finish"], type="primary", use_container_width=True):
         statystyki_koncowe = {"Punkty": total_points, "Max": max_total_score, "Skuteczność": percent, "Strzały": total_arrows_shot, "10_i_X": count_10_total, "X": count_x, "10": count_10_total, "9": count_9, "M": count_m}
         if zapisz_do_arkusza(st.session_state.event_info, statystyki_koncowe):
@@ -623,6 +610,27 @@ if st.session_state.started:
     if c_c.button(T[lang]["cancel_btn"], use_container_width=True):
         reset()
         st.rerun()
+
+    st.write("")
+    
+    # KOMPAKTOWA KARTA STATYSTYK "GESAMTERGEBNIS" NA SAMYM DOLE
+    st.markdown(f"""
+    <div style='background-color: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 5px solid #2E8B57; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+        <p style='margin: 0 0 10px 0; font-size: 16px; font-weight: bold;'>📊 {T[lang]['total_score']}</p>
+        <div style='display: flex; justify-content: space-between; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;'>
+            <div><span style='font-size: 12px; color: gray;'>{T[lang]['pts']}</span><br><b style='font-size: 18px;'>{total_points}</b><span style='font-size:12px; color:gray;'>/{max_total_score}</span></div>
+            <div><span style='font-size: 12px; color: gray;'>{T[lang]['arrow_cnt']}</span><br><b style='font-size: 18px;'>{total_arrows_shot}</b></div>
+            <div><span style='font-size: 12px; color: gray;'>{T[lang]['eff']}</span><br><b style='font-size: 18px; color: #2E8B57;'>{percent:.1f}%</b></div>
+        </div>
+        <div style='display: flex; justify-content: space-around; text-align: center;'>
+            <div><b style='color: #D4AC0D; font-size: 14px;'>X</b><br><span style='font-size: 16px; font-weight: bold;'>{count_x}</span></div>
+            <div><b style='color: #D4AC0D; font-size: 14px;'>10</b><br><span style='font-size: 16px; font-weight: bold;'>{count_10}</span></div>
+            <div><b style='color: #FBC02D; font-size: 14px;'>9</b><br><span style='font-size: 16px; font-weight: bold;'>{count_9}</span></div>
+            <div><b style='color: gray; font-size: 14px;'>M</b><br><span style='font-size: 16px; font-weight: bold;'>{count_m}</span></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ---------------------------------------------------------------------
 # NOWE MENU GŁÓWNE (DASHBOARD) - KIEDY NIE STRZELASZ
