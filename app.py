@@ -14,16 +14,12 @@ st.set_page_config(page_title="SFT Schießzettel", layout="centered", initial_si
 # --- UKRYCIE INTERFEJSU STREAMLIT (WYGLĄD NATYWNEJ APLIKACJI) ---
 st.markdown("""
     <style>
-        /* Ukrycie paska nagłówka z przyciskiem Deploy i menu */
         header {visibility: hidden;}
-        /* Ukrycie stopki na dole */
         footer {visibility: hidden;}
-        /* Zmniejszenie pustego marginesu na samej górze ekranu */
         .block-container {
             padding-top: 1rem;
             padding-bottom: 1rem;
         }
-        /* Ukrycie guzika "Manage app" (nawet dla Ciebie, żeby nie psuł widoku) */
         .stDeployButton {display:none;}
     </style>
 """, unsafe_allow_html=True)
@@ -48,7 +44,7 @@ T = {
         "home_last_training": "Ostatni trening:",
         "home_record": "Twój rekord na",
         "home_no_data": "Nie masz jeszcze żadnych wyników. Czas na trening!",
-        "upcoming_events": "📅 Twoje nadchodzące wyjazdy/treningi",
+        "upcoming_events": "🗓️ Twoje nadchodzące wyjazdy/treningi",
         "no_events": "Brak zaplanowanych wydarzeń.",
         "training": "Trening",
         "tournament": "Turniej",
@@ -112,7 +108,7 @@ T = {
         "home_last_training": "Dein letztes Training:",
         "home_record": "Dein Rekord auf",
         "home_no_data": "Noch keine Ergebnisse vorhanden. Zeit für ein Training!",
-        "upcoming_events": "📅 Deine nächsten Termine",
+        "upcoming_events": "🗓️ Deine nächsten Termine",
         "no_events": "Keine geplanten Ereignisse.",
         "training": "Training",
         "tournament": "Turnier",
@@ -646,7 +642,7 @@ else:
             st.markdown(f"""
             <div style='background-color: #f9f9f9; padding: 12px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 20px;'>
                 <p style='margin: 0; font-size: 14px; color: gray;'>{T[lang]['home_last_training']}</p>
-                <p style='margin: 5px 0; font-size: 16px; font-weight: bold;'>📅 {ostatnia_data}  |  🎯 {ostatni_dystans}  |  🏅 {ostatnie_punkty} pts</p>
+                <p style='margin: 5px 0; font-size: 16px; font-weight: bold;'>🗓️ {ostatnia_data}  |  🎯 {ostatni_dystans}  |  🏅 {ostatnie_punkty} pts</p>
                 <hr style='margin: 8px 0; border: none; border-top: 1px solid #ddd;'>
                 <p style='margin: 0; font-size: 14px; color: #D4AC0D;'>🏆 {T[lang]['home_record']} <b>{ostatni_dystans}</b>: <b>{rekord} pts</b></p>
             </div>
@@ -676,7 +672,7 @@ else:
                     
                     st.markdown(f"""
                     <div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-                        <b style='font-size: 14px; color: #333;'>📅 {row['Data']}</b> | <span style='font-size: 15px; color: #000;'>{row['Nazwa']}</span>{adres_html}
+                        <b style='font-size: 14px; color: #333;'>🗓️ {row['Data']}</b> | <span style='font-size: 15px; color: #000;'>{row['Nazwa']}</span>{adres_html}
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -842,7 +838,7 @@ else:
                     alt.Tooltip('10:Q', title="🔟 Wszystkie 10" if lang=="PL" else "🔟 Alle 10er"),
                     alt.Tooltip('9:Q', title="9️⃣ Dziewiątki" if lang=="PL" else "9️⃣ 9er"),
                     alt.Tooltip('M:Q', title="Ⓜ️ Pudła (M)" if lang=="PL" else "Ⓜ️ Fehler (M)"),
-                    alt.Tooltip('Data:N', title="📅 Data" if lang=="PL" else "📅 Datum"),
+                    alt.Tooltip('Data:N', title="🗓️ Data" if lang=="PL" else "🗓️ Datum"),
                     alt.Tooltip('Czas:N', title="⏰ Godzina" if lang=="PL" else "⏰ Uhrzeit")
                 ]
                 
@@ -878,7 +874,7 @@ else:
 
     # --- ZAKŁADKA: KALENDARZ ---
     elif wybrana_zakladka == T[lang]["menu_calendar"]:
-        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>📅 {T[lang]['menu_calendar']}</p></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color: #f9f9f9; padding: 10px 15px; border-radius: 8px; border-left: 5px solid #2E8B57; margin-bottom: 15px;'><p style='margin: 0; font-size: 16px; font-weight: bold;'>🗓️ {T[lang]['menu_calendar']}</p></div>", unsafe_allow_html=True)
         
         tab_my_plan, tab_diary = st.tabs([T[lang]["my_plan"], T[lang]["my_diary"]])
                     
@@ -904,7 +900,7 @@ else:
                 df_my_cal = df_my_cal.sort_values('Datetime')
                 
                 for _, row in df_my_cal.iterrows():
-                    col_e1, col_e2 = st.columns([5, 1])
+                    col_e1, col_e2 = st.columns([6, 1])
                     with col_e1:
                         adres_text = str(row.get("Adres", "")).strip()
                         adres_html = ""
@@ -913,10 +909,10 @@ else:
                             maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
                             adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #1E88E5; color: white; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
                             
-                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>📅 {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>🗓️ {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
                     with col_e2:
-                        st.write("") 
-                        if st.button("🗑️", key=f"del_{row['ID']}"):
+                        st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+                        if st.button("🗑️", key=f"del_{row['ID']}", use_container_width=True):
                             usun_kalendarz_osobisty(row['ID'])
                             st.rerun()
 
@@ -930,7 +926,7 @@ else:
                     st.markdown(f"""
                     <div style='background-color: #ffffff; border: 1px solid #ddd; padding: 10px; border-radius: 5px; border-left: 5px solid #2E8B57; margin-bottom: 8px;'>
                         <div style='display: flex; justify-content: space-between;'>
-                            <b>📅 {row['Data']}</b>
+                            <b>🗓️ {row['Data']}</b>
                             <span style='color: gray; font-size: 12px;'>{row['Czas']}</span>
                         </div>
                         <div style='margin-top: 5px; font-size: 15px;'>
