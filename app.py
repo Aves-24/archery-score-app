@@ -23,7 +23,8 @@ st.markdown("""
         
         .block-container {
             padding-top: 1rem;
-            padding-bottom: 1rem;
+            /* Ogromny margines na dole zabezpiecza przed paskami nawigacji w smartfonach! */
+            padding-bottom: 4rem !important; 
             max-width: 100% !important;
             overflow-x: hidden !important; 
         }
@@ -271,13 +272,11 @@ if st.session_state.started:
         st.session_state.pogoda_txt = pro.pobierz_pogode()
         st.session_state.pogoda_r2_pobrana = True
         
-        # Jeśli to Multi, wyślij wynik połowy do chmury!
         kod_meczu = info.get("KodMeczu", "")
         if kod_meczu:
             punkty_r1 = sum(get_num(s) for s in scores[:st.session_state.max_arrows_per_round])
             x_r1 = scores[:st.session_state.max_arrows_per_round].count("X")
             x10_r1 = scores[:st.session_state.max_arrows_per_round].count("10") + x_r1
-            # Zapis z tagiem (1/2)
             db.zapisz_wynik_grupowy(f"{st.session_state.zalogowany_zawodnik} (1/2)", kod_meczu, punkty_r1, x10_r1, x_r1)
     
     tytul = f"{info['Typ']}" + (f" - {info['Nazwa']}" if info['Nazwa'] != "-" else "")
@@ -409,7 +408,7 @@ if st.session_state.started:
         tytul_rank = "🏆 Zwischenstand (Halbzeit)" if lang == "DE" else "🏆 Wyniki na półmetku"
         with st.expander(tytul_rank, expanded=True):
             if st.button("🔄 Refresh", use_container_width=True, key="ref_halbzeit"):
-                db.pobierz_ranking.clear() # Wymusza pobranie świeżych danych
+                db.pobierz_ranking.clear() 
             
             df_rank = db.pobierz_ranking()
             if df_rank.empty: 
@@ -454,9 +453,9 @@ else:
             default_index=0, 
             orientation="horizontal",
             styles={
-                "container": {"padding": "0!important", "background-color": "#ffffff", "border": "1px solid #ddd", "border-radius": "10px", "margin-bottom": "20px"},
+                "container": {"padding": "5px !important", "background-color": "#ffffff", "border": "1px solid #ddd", "border-radius": "10px", "margin-bottom": "20px"},
                 "icon": {"color": "#D4AC0D", "font-size": "15px"}, 
-                "nav-link": {"font-size": "12px", "text-align": "center", "margin":"0px", "padding": "10px 5px", "--hover-color": "#f4f4f4"},
+                "nav-link": {"font-size": "12px", "text-align": "center", "margin":"2px", "padding": "10px 5px", "--hover-color": "#f4f4f4"},
                 "nav-link-selected": {"background-color": "#2E8B57", "font-weight": "bold", "color": "white"},
             }
         )
