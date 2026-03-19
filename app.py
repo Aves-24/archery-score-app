@@ -93,8 +93,7 @@ T = {
         "add_event": "➕ Dodaj wydarzenie",
         "event_date": "Data",
         "event_event_name": "Nazwa wydarzenia",
-        "event_address": "Adres (opcjonalnie)",
-        "nav_btn": "Nawiguj"
+        "event_address": "Adres (opcjonalnie)"
     },
     "DE": {
         "title": "🏹 Schießzettel",
@@ -157,8 +156,7 @@ T = {
         "add_event": "➕ Ereignis hinzufügen",
         "event_date": "Datum",
         "event_event_name": "Name des Ereignisses",
-        "event_address": "Adresse (optional)",
-        "nav_btn": "Route starten"
+        "event_address": "Adresse (optional)"
     }
 }
 
@@ -353,7 +351,14 @@ def usun_kalendarz_osobisty(event_id):
     except: return False
 
 
-# --- FUNKCJE POMOCNICZE LOGOWANIA ---
+# =====================================================================
+# SPRAWDZENIE AUTO-LOGINU I USUWANIA W TLE
+# =====================================================================
+if "del" in st.query_params:
+    usun_kalendarz_osobisty(st.query_params["del"])
+    del st.query_params["del"] # Czyścimy link z komendy usunięcia
+    st.rerun()
+
 def wykonaj_logowanie(czysta_nazwa):
     st.session_state.zalogowany_zawodnik = czysta_nazwa
     st.query_params["u"] = czysta_nazwa 
@@ -402,7 +407,6 @@ def zmiana_jezyka():
     st.session_state.lang = st.session_state.lang_sel
     save_user_settings()
 
-# --- SYSTEM PUNKTACJI W TLE ---
 def save_backup():
     if st.session_state.get('started') and st.session_state.zalogowany_zawodnik:
         with open(get_autosave_file(), "w") as f: 
@@ -432,17 +436,6 @@ def add_extra_arrows(val):
         st.session_state.extra_arrows += val
         save_backup()
 
-# --- INICJALIZACJA ZMIENNYCH SPRZĘTU ---
-for d in dystanse_lista:
-    if f"aus_{d}" not in st.session_state: st.session_state[f"aus_{d}"] = ""
-    if f"hoehe_{d}" not in st.session_state: st.session_state[f"hoehe_{d}"] = ""
-    if f"seite_{d}" not in st.session_state: st.session_state[f"seite_{d}"] = ""
-for z in ["zuggewicht", "standhoehe", "tiller", "nockpunkt", "pfeil_modell", "pfeil_spine", "pfeil_laenge", "pfeil_spitze"]:
-    if z not in st.session_state: st.session_state[z] = ""
-
-# =====================================================================
-# SPRAWDZENIE AUTO-LOGINU
-# =====================================================================
 if not st.session_state.zalogowany_zawodnik and "u" in st.query_params:
     wykonaj_logowanie(st.query_params["u"])
 
@@ -668,23 +661,14 @@ else:
                     if adres_text:
                         encoded_adres = urllib.parse.quote(adres_text)
                         maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                        adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #1E88E5; color: white; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
+                        adres_html = f"<div style='margin-top: 6px;'><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='text-decoration: none; display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 8px; border-radius: 6px; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>📍</a></div>"
                     
                     st.markdown(f"""
-                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-                        <b style='font-size: 14px; color: #333;'>🗓️ {row['Data']}</b> | <span style='font-size: 15px; color: #000;'>{row['Nazwa']}</span>{adres_html}
+                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 8px; border-left: 5px solid #D4AC0D; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+                        <b style='font-size: 14px; color: #333;'>🗓️ {row['Data']}</b> | <span style='font-size: 15px; color: #000; font-weight: 500;'>{row['Nazwa']}</span>
+                        {adres_html}
                     </div>
                     """, unsafe_allow_html=True)
-
-        st.write("")
-        btn_wa_txt = "🟢 App über WhatsApp teilen" if lang == "DE" else "🟢 Udostępnij aplikację przez WhatsApp"
-        st.markdown(f"""
-            <div style='text-align: center; margin-top: 10px;'>
-                <a href="whatsapp://send?text=Hallo! 👋 Schau dir unsere Vereins-App an: {ADRES_APLIKACJI}" target="_blank" style="text-decoration: none; background-color: #25D366; color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px;">
-                    {btn_wa_txt}
-                </a>
-            </div>
-        """, unsafe_allow_html=True)
 
     # --- ZAKŁADKA: SCHIESSZETTEL ---
     elif wybrana_zakladka == T[lang]["menu_score"]:
@@ -900,21 +884,30 @@ else:
                 df_my_cal = df_my_cal.sort_values('Datetime')
                 
                 for _, row in df_my_cal.iterrows():
-                    col_e1, col_e2 = st.columns([6, 1])
-                    with col_e1:
-                        adres_text = str(row.get("Adres", "")).strip()
-                        adres_html = ""
-                        if adres_text:
-                            encoded_adres = urllib.parse.quote(adres_text)
-                            maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
-                            adres_html = f"<br><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='display: inline-block; margin-left: 8px; background-color: #1E88E5; color: white; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📍</a>"
-                            
-                        st.markdown(f"<div style='background-color: #ffffff; border: 1px solid #eee; padding: 10px; border-radius: 5px; border-left: 4px solid #1E88E5; margin-bottom: 5px;'><b style='color: #1E88E5;'>🗓️ {row['Data']}</b> | {row['Nazwa']}{adres_html}</div>", unsafe_allow_html=True)
-                    with col_e2:
-                        st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
-                        if st.button("🗑️", key=f"del_{row['ID']}", use_container_width=True):
-                            usun_kalendarz_osobisty(row['ID'])
-                            st.rerun()
+                    adres_text = str(row.get("Adres", "")).strip()
+                    adres_html = ""
+                    if adres_text:
+                        encoded_adres = urllib.parse.quote(adres_text)
+                        maps_url = f"https://www.google.com/maps/dir/?api=1&destination={encoded_adres}"
+                        adres_html = f"<div style='margin-top: 6px;'><span style='font-size: 13px; color: gray;'>🏠 {adres_text}</span> <a href='{maps_url}' target='_blank' style='text-decoration: none; display: inline-block; margin-left: 8px; background-color: #e3f2fd; border: 1px solid #bbdefb; padding: 4px 8px; border-radius: 6px; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>📍</a></div>"
+                        
+                    del_link = f"?u={urllib.parse.quote(st.session_state.zalogowany_zawodnik)}&del={row['ID']}"
+                    trash_btn = f"<a href='{del_link}' target='_self' style='text-decoration: none; display: inline-block; background-color: #fff; border: 1px solid #ffcdd2; color: #d32f2f; padding: 6px 10px; border-radius: 6px; font-size: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s;'>🗑️</a>"
+                    
+                    st.markdown(f"""
+                    <div style='background-color: #ffffff; border: 1px solid #eee; padding: 12px; border-radius: 8px; border-left: 5px solid #1E88E5; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
+                        <div style='display: flex; justify-content: space-between; align-items: flex-end;'>
+                            <div style='flex-grow: 1; padding-right: 10px;'>
+                                <b style='color: #1E88E5; font-size: 14px;'>🗓️ {row['Data']}</b><br>
+                                <span style='font-size: 15px; font-weight: 500; color: #333;'>{row['Nazwa']}</span>
+                                {adres_html}
+                            </div>
+                            <div>
+                                {trash_btn}
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
         with tab_diary:
             df_hist = pobierz_dane_z_arkusza(st.session_state.zalogowany_zawodnik)
